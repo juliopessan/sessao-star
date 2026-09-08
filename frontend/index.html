@@ -205,6 +205,21 @@
   .report-panel{border:1px solid var(--line);padding:26px;margin-bottom:24px;background:var(--panel);}
   .report-panel h3{font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-dim);margin:0 0 16px;}
   .report-body{font-size:13px;line-height:1.75;color:var(--text);white-space:pre-wrap;}
+  .insights-chart{display:grid;gap:12px;margin-top:22px;padding-top:20px;border-top:1px solid var(--line);}
+  .insights-subtitle{grid-column:1/-1;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-faint);margin-bottom:2px;}
+  .insight-bar{display:grid;grid-template-columns:110px 1fr 42px;align-items:center;gap:12px;font-size:11px;color:var(--text-dim);}
+  .insight-bar-label{letter-spacing:0.08em;text-transform:uppercase;}
+  .insight-bar-track{height:8px;background:var(--panel-2);border:1px solid var(--line);}
+  .insight-bar-fill{height:100%;background:var(--accent);transition:width .35s ease;}
+  .insight-bar-value{text-align:right;color:var(--text);font-variant-numeric:tabular-nums;}
+  .insights-timeline{display:flex;flex-wrap:wrap;gap:8px;overflow-x:auto;margin-top:24px;padding-top:20px;border-top:1px solid var(--line);}
+  .insights-timeline .insights-subtitle{width:100%;}
+  .timeline-card{min-width:150px;border:1px solid var(--line);background:var(--bg);padding:14px;}
+  .timeline-date{font-size:10px;color:var(--text-faint);letter-spacing:0.08em;text-transform:uppercase;}
+  .timeline-role{font-size:12px;color:var(--text);margin:8px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .timeline-score{font-family:var(--font-display);font-size:24px;color:var(--accent);}
+  .timeline-meta{font-size:10px;color:var(--text-faint);}
+  .timeline-empty{font-size:11px;color:var(--text-faint);padding:4px 0;}
 
   footer{border-top:1px solid var(--line);padding:26px 32px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-faint);letter-spacing:0.04em;flex-wrap:wrap;gap:8px;}
 
@@ -373,6 +388,8 @@
     <div class="report-panel">
       <h3 data-i18n="insights.title">Seu histórico &amp; modelo preditivo</h3>
       <div class="report-body" id="insights-body" data-i18n="insights.loading">Carregando histórico…</div>
+      <div class="insights-chart" id="insights-chart" aria-label="STAR coverage by element"></div>
+      <div class="insights-timeline" id="insights-timeline" aria-label="Recent interview sessions"></div>
     </div>
 
     <div class="transcript-list" id="transcript-list"></div>
@@ -445,6 +462,7 @@
       "interview.meta.practice": "TUTOR · RODADA DE TREINO",
       "interview.meta.real": "KOKORO + WHISPER",
       "progress.practice": "[ TREINO ]",
+      "progress.followup": "[ APROFUNDAMENTO ]",
       "onair.idle": "EM ESPERA",
       "onair.speaking.tutor": "TUTOR FALANDO",
       "onair.speaking.recruiter": "RECRUTADOR FALANDO",
@@ -484,6 +502,14 @@
       "insights.model.cold": "Modelo preditivo: ainda usando heurística simples ({{n}}/{{min}} respostas coletadas). Continue praticando pra ativar o modelo treinado.",
       "insights.weak": "Temas historicamente mais fracos: {{list}}. Novas sessões vão priorizar perguntas nesses temas.",
       "insights.weak.item": "{{theme}} (cobertura média {{pct}}%, {{n}} resposta(s))",
+      "insights.chart": "Cobertura média por elemento STAR",
+      "insights.timeline": "Evolução das sessões recentes",
+      "insights.session": "{{answers}} respostas · {{pct}}% STAR",
+      "insights.no_history": "Complete sua primeira entrevista para começar a visualizar sua evolução.",
+      "followup.analyzing": "Preparando uma pergunta de aprofundamento…",
+      "followup.theme": "FOLLOW-UP · APROFUNDAMENTO",
+      "btn.next.followup": "[ Adicionar resposta → ]",
+      "btn.skip.followup": "Pular aprofundamento",
       "answer.label": "Resposta",
       "answer.none": "(sem resposta)",
       "answer.skipped": "— pergunta pulada —",
@@ -545,6 +571,7 @@
       "interview.meta.practice": "TUTOR · PRACTICE ROUND",
       "interview.meta.real": "KOKORO + WHISPER",
       "progress.practice": "[ PRACTICE ]",
+      "progress.followup": "[ FOLLOW-UP ]",
       "onair.idle": "STANDING BY",
       "onair.speaking.tutor": "TUTOR SPEAKING",
       "onair.speaking.recruiter": "RECRUITER SPEAKING",
@@ -584,6 +611,14 @@
       "insights.model.cold": "Predictive model: still using a simple heuristic ({{n}}/{{min}} answers collected). Keep practicing to activate the trained model.",
       "insights.weak": "Historically weaker themes: {{list}}. New sessions will prioritize questions on these themes.",
       "insights.weak.item": "{{theme}} (average coverage {{pct}}%, {{n}} answer(s))",
+      "insights.chart": "Average coverage by STAR element",
+      "insights.timeline": "Recent session progression",
+      "insights.session": "{{answers}} answers · {{pct}}% STAR",
+      "insights.no_history": "Complete your first interview to start seeing your progress.",
+      "followup.analyzing": "Preparing a targeted follow-up…",
+      "followup.theme": "FOLLOW-UP · DEEP DIVE",
+      "btn.next.followup": "[ Add answer → ]",
+      "btn.skip.followup": "Skip follow-up",
       "answer.label": "Answer",
       "answer.none": "(no answer)",
       "answer.skipped": "— question skipped —",
@@ -717,6 +752,8 @@
     questionsGenerated: false,
     userEdited: false,
     index: 0,
+    followUpActive: false,
+    pendingAnswer: "",
     transcripts: [],
     jd: "",
     recording: false,
@@ -1042,17 +1079,23 @@
     $("btn-skip").textContent = t("btn.skip.real");
     state.phase = "real";
     state.index = 0;
+    state.followUpActive = false;
+    state.pendingAnswer = "";
     loadQuestion();
   });
 
   function loadQuestion(){
     var q = state.questions[state.index];
+    state.followUpActive = false;
+    state.pendingAnswer = "";
     $("interview-meta").textContent = t("interview.meta.real");
     $("cue-theme").textContent = q.theme;
     $("cue-question").textContent = q.question;
     $("progress").textContent = "[ "+String(state.index+1).padStart(2,"0")+" / "+String(state.questions.length).padStart(2,"0")+" ]";
     $("transcript-live").textContent = "";
     $("btn-next").disabled = true;
+    $("btn-skip").disabled = false;
+    $("btn-replay").disabled = false;
     $("btn-next").textContent = (state.index === state.questions.length - 1) ? t("btn.next.finish") : t("btn.next.question");
     if (state.recording) stopRecording();
     speak(q.question);
@@ -1063,8 +1106,8 @@
     else speak(state.questions[state.index].question);
   });
 
-  function commitAnswer(skipped){
-    var answer = $("transcript-live").textContent.trim();
+  function commitAnswer(skipped, answerOverride){
+    var answer = answerOverride != null ? answerOverride : $("transcript-live").textContent.trim();
     state.transcripts.push({
       theme: state.questions[state.index].theme,
       question: state.questions[state.index].question,
@@ -1082,9 +1125,63 @@
       loadQuestion();
       return;
     }
+    if (state.followUpActive){
+      commitAnswer(false, state.pendingAnswer);
+      state.followUpActive = false;
+      state.pendingAnswer = "";
+      advance();
+      return;
+    }
     commitAnswer(true);
     advance();
   });
+
+  function requestFollowUp(){
+    var answer = $("transcript-live").textContent.trim();
+    if (!answer){
+      commitAnswer(false, answer);
+      advance();
+      return;
+    }
+    $("btn-next").disabled = true;
+    $("btn-skip").disabled = true;
+    $("btn-replay").disabled = true;
+    $("btn-mic").disabled = true;
+    setOnAir("processing");
+    $("cue-theme").textContent = t("followup.theme");
+    $("progress").textContent = t("progress.followup");
+    fetch("/api/follow-up", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        question: state.questions[state.index].question,
+        answer: answer,
+        theme: state.questions[state.index].theme,
+        lang: currentLang
+      })
+    }).then(function(r){
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    }).then(function(data){
+      if (!data.should_follow_up){
+        commitAnswer(false, answer);
+        advance();
+        return;
+      }
+      state.followUpActive = true;
+      state.pendingAnswer = answer;
+      $("cue-question").textContent = data.question;
+      $("transcript-live").textContent = "";
+      $("btn-next").textContent = t("btn.next.followup");
+      $("btn-next").disabled = true;
+      $("btn-skip").textContent = t("btn.skip.followup");
+      $("btn-skip").disabled = false;
+      speak(data.question);
+    }).catch(function(){
+      commitAnswer(false, answer);
+      advance();
+    });
+  }
 
   $("btn-next").addEventListener("click", function(){
     if (state.recording) stopRecording();
@@ -1092,8 +1189,15 @@
       showTutorFeedback();
       return;
     }
-    commitAnswer(false);
-    advance();
+    if (state.followUpActive){
+      var combined = state.pendingAnswer + "\n\n" + $("transcript-live").textContent.trim();
+      commitAnswer(false, combined.trim());
+      state.followUpActive = false;
+      state.pendingAnswer = "";
+      advance();
+      return;
+    }
+    requestFollowUp();
   });
 
   function advance(){
@@ -1180,8 +1284,12 @@
 
   function loadInsights(){
     var body = $("insights-body");
+    var chart = $("insights-chart");
+    var timeline = $("insights-timeline");
     body.textContent = t("insights.loading");
-    fetch("/api/insights").then(function(r){
+    chart.innerHTML = "";
+    timeline.innerHTML = "";
+    fetch("/api/insights?lang=" + encodeURIComponent(currentLang)).then(function(r){
       if (!r.ok) throw new Error("http " + r.status);
       return r.json();
     }).then(function(data){
@@ -1199,9 +1307,37 @@
         lines.push(t("insights.weak", {list: w}));
       }
       body.textContent = lines.join(" ");
+      renderInsightsVisuals(data);
     }).catch(function(){
       body.textContent = t("insights.error");
     });
+  }
+
+  function renderInsightsVisuals(data){
+    var chart = $("insights-chart");
+    var timeline = $("insights-timeline");
+    var coverage = data.coverage || {};
+    var labels = currentLang === "en"
+      ? {situation:"Situation", task:"Task", action:"Action", result:"Result"}
+      : {situation:"Situação", task:"Tarefa", action:"Ação", result:"Resultado"};
+    var bars = Object.keys(labels).map(function(key){
+      var pct = Math.round((Number(coverage[key]) || 0) * 100);
+      return '<div class="insight-bar"><span class="insight-bar-label">'+labels[key]+'</span><span class="insight-bar-track"><span class="insight-bar-fill" style="width:'+Math.max(0, Math.min(100, pct))+'%"></span></span><span class="insight-bar-value">'+pct+'%</span></div>';
+    }).join("");
+    chart.innerHTML = '<div class="insights-subtitle">'+escapeHtml(t("insights.chart"))+'</div>'+bars;
+
+    var sessions = data.timeline || [];
+    if (!sessions.length){
+      timeline.innerHTML = '<div class="timeline-empty">'+escapeHtml(t("insights.no_history"))+'</div>';
+      return;
+    }
+    var cards = sessions.map(function(item){
+      var pct = Math.round((Number(item.coverage) || 0) * 100);
+      var date = new Date(Number(item.created_at) * 1000).toLocaleDateString(currentLang === "en" ? "en-US" : "pt-BR", {month:"short", day:"numeric"});
+      var role = item.role || (currentLang === "en" ? "Practice session" : "Sessão de prática");
+      return '<div class="timeline-card"><div class="timeline-date">'+escapeHtml(date)+'</div><div class="timeline-role" title="'+escapeHtml(role)+'">'+escapeHtml(role)+'</div><div class="timeline-score">'+pct+'%</div><div class="timeline-meta">'+escapeHtml(t("insights.session", {answers:item.answers, pct:pct}))+'</div></div>';
+    }).join("");
+    timeline.innerHTML = '<div class="insights-subtitle">'+escapeHtml(t("insights.timeline"))+'</div>'+cards;
   }
 
   $("btn-copy").addEventListener("click", function(){

@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 import threading
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import List, Optional
 
@@ -23,12 +24,13 @@ load_dotenv()
 BACKEND_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BACKEND_DIR.parent / "frontend"
 
-app = FastAPI(title="STAR Session")
-
-
-@app.on_event("startup")
-def _startup():
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
     db.init_db()
+    yield
+
+
+app = FastAPI(title="STAR Session", lifespan=lifespan)
 
 
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
@@ -236,7 +238,7 @@ def local_questions(resume: str, role: str, jd: str = "", lang: str = "pt") -> L
         ]
 
     # In the local fallback, prioritize the themes where the candidate's history shows the most STAR gaps.
-    weak_names = {w["theme"] for w in ml.weak_theme_profile(limit=3)}
+    weak_names = {w["theme"] for w in ml.weak_theme_profile(limit=3, lang=lang)}
     if weak_names:
         questions.sort(key=lambda q: 0 if q["theme"] in weak_names else 1)
     return questions
@@ -275,7 +277,7 @@ def star_coverage(answer: str, lang: str = "pt") -> List[str]:
 def coverage_for(answer: str, lang: str = "pt") -> List[str]:
     """STAR coverage for an answer: uses the trained model (ml.py) when available,
     otherwise falls back to the keyword heuristic."""
-    predicted = ml.predict_coverage(answer)
+    predicted = ml.predict_coverage(answer, lang)
     return predicted if predicted is not None else star_coverage(answer, lang)
 
 
@@ -421,9 +423,76 @@ def tutor_feedback(req: TutorFeedbackRequest):
         return {"feedback": local_tutor_feedback(answer, lang), "source": "local"}
 
 
+FOLLOW_UP_QUESTIONS = {
+    "pt": {
+        "situation": "Qual era o contexto específico e quem estava envolvido nessa situação?",
+        "task": "Qual era exatamente a sua responsabilidade ou o objetivo que precisava cumprir?",
+        "action": "Quais foram as ações concretas que você tomou, passo a passo?",
+        "result": "Qual foi o resultado concreto? Se possível, traga um número, prazo ou impacto mensurável.",
+    },
+    "en": {
+        "situation": "What was the specific context, and who was involved in that situation?",
+        "task": "What exactly was your responsibility or the goal you needed to achieve?",
+        "action": "What concrete actions did you take, step by step?",
+        "result": "What was the concrete result? If possible, share a number, timeframe, or measurable impact.",
+    },
+}
+
+
+class FollowUpRequest(BaseModel):
+    question: str
+    answer: str
+    theme: Optional[str] = ""
+    lang: Optional[str] = "pt"
+
+
+@app.post("/api/follow-up")
+def follow_up(req: FollowUpRequest):
+    answer = (req.answer or "").strip()
+    lang = "en" if req.lang == "en" else "pt"
+    covered = coverage_for(answer, lang)
+    missing = [label for label in ("situation", "task", "action", "result") if label not in covered]
+    should_follow_up = bool(answer) and (len(covered) < 3 or len(answer.split()) < 20)
+    if not should_follow_up:
+        return {"should_follow_up": False, "missing": [], "source": "heuristic"}
+
+    client = get_anthropic_client()
+    fallback = FOLLOW_UP_QUESTIONS[lang][missing[0]] if missing else FOLLOW_UP_QUESTIONS[lang]["result"]
+    if client is None:
+        return {"should_follow_up": True, "question": fallback, "missing": missing, "source": "local"}
+
+    if lang == "en":
+        prompt = (
+            "You are an adaptive behavioral interviewer using the STAR method. The candidate's "
+            "answer is incomplete. Write exactly ONE concise follow-up question in English that "
+            "asks for the most important missing STAR detail. Do not explain, do not use markdown.\n\n"
+            f"MAIN QUESTION: {req.question}\nTHEME: {req.theme}\n"
+            f"MISSING ELEMENTS: {', '.join(missing)}\nANSWER: {answer[:3000]}"
+        )
+    else:
+        prompt = (
+            "Você é um recrutador adaptativo usando o método STAR. A resposta do candidato está "
+            "incompleta. Escreva EXATAMENTE UMA pergunta curta de follow-up em português do Brasil "
+            "pedindo o detalhe STAR mais importante que faltou. Não explique e não use markdown.\n\n"
+            f"PERGUNTA PRINCIPAL: {req.question}\nTEMA: {req.theme}\n"
+            f"ELEMENTOS AUSENTES: {', '.join(missing)}\nRESPOSTA: {answer[:3000]}"
+        )
+    try:
+        msg = client.messages.create(
+            model=ANTHROPIC_MODEL,
+            max_tokens=180,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = "".join(block.text for block in msg.content if block.type == "text").strip()
+        if not text:
+            raise ValueError("Empty follow-up question.")
+        return {"should_follow_up": True, "question": text, "missing": missing, "source": "claude"}
+    except Exception:
+        return {"should_follow_up": True, "question": fallback, "missing": missing, "source": "local"}
+
 def weak_theme_hint(lang: str = "pt") -> str:
     """Prompt snippet with the themes where the candidate's history shows the most STAR gaps."""
-    weak = ml.weak_theme_profile(limit=2)
+    weak = ml.weak_theme_profile(limit=2, lang=lang)
     if not weak:
         return ""
     names = ", ".join(w["theme"] for w in weak)
@@ -625,22 +694,26 @@ def session_save(req: SessionSaveRequest):
         report_source=req.report_source or "",
         transcripts=req.transcripts or [],
         coverage_fn=lambda a: star_coverage(a, lang),
+        lang=lang,
     )
-    model = ml.train()
+    model = ml.train(lang)
     return {
         "session_id": session_id,
-        "sessions_total": db.session_count(),
-        "model_trained": model is not None,
+        "sessions_total": db.session_count(lang),
+        "model_trained": model is not None or ml.model_status(lang)["trained"],
     }
 
 
 @app.get("/api/insights")
-def insights():
+def insights(lang: str = "pt"):
+    ui_lang = "en" if lang == "en" else "pt"
     return {
-        "sessions_total": db.session_count(),
-        "answers_total": db.answer_count(),
-        "weak_themes": ml.weak_theme_profile(),
-        "model": ml.model_status(),
+        "sessions_total": db.session_count(ui_lang),
+        "answers_total": db.answer_count(ui_lang),
+        "weak_themes": ml.weak_theme_profile(lang=ui_lang),
+        "model": ml.model_status(ui_lang),
+        "coverage": db.coverage_summary(ui_lang),
+        "timeline": db.history(lang=ui_lang),
     }
 
 

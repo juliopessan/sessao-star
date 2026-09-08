@@ -17,8 +17,10 @@ STAR Session was built to solve both at once: questions that cross-reference *yo
 2. Claude cross-references both and puts together 6 behavioral questions using the STAR method — including questions that deliberately probe a job requirement your résumé doesn't yet prove.
 3. Before anything counts, a practice round with a tutor briefly explains the method and gives feedback on a warm-up answer, none of which affects the final score.
 4. The real interview starts: a simulated recruiter speaks each question out loud, you answer through the microphone, and the transcript appears on screen — editable, in case Whisper mishears a word.
-5. At the end, a report points out, question by question, where your answer covered Situation, Task, Action, and Result — and where it fell short.
-6. The session is saved to your local history. Once enough answers pile up, a model trained on your own response patterns starts aiming future questions exactly at the themes where you tend to drop the ball.
+5. If an answer is too short or misses key STAR elements, the recruiter asks one targeted follow-up before moving on — then merges both parts into the final transcript.
+6. At the end, a report points out, question by question, where your answer covered Situation, Task, Action, and Result — and where it fell short.
+7. The session is saved to your local history. The report now includes coverage bars and a timeline of recent sessions so progress is visible, not just described.
+8. Once enough answers pile up, language-specific models trained on your own response patterns start aiming future questions exactly at the themes where you tend to drop the ball.
 
 ## How it works under the hood
 
@@ -33,6 +35,7 @@ FastAPI (backend/main.py)
     |-- /api/tts             -> Kokoro TTS   (lock: 1 call at a time)
     |-- /api/stt             -> Whisper      (lock: 1 call at a time)
     |-- /api/tutor-feedback  -> Claude API (fallback: local heuristic)
+    |-- /api/follow-up      -> Claude API (fallback: local heuristic)
     |-- /api/report          -> Claude API (fallback: local heuristic)
     |-- /api/session/save    -> SQLite (backend/db.py)
     |-- /api/insights        -> predictive model (backend/ml.py)
@@ -40,7 +43,11 @@ FastAPI (backend/main.py)
 
 Everything goes through the backend, including voice generation and transcription — not because the browser can't record audio, but because Kokoro and Whisper are real Python models with weights well over 100 MB, and there's no version of them running purely in browser JavaScript. The Claude API key follows the same logic as always: it never leaves the server.
 
-**History and predictive model.** Every finished session — résumé, JD, questions, answers, report — is saved to SQLite (`backend/db.py`). A keyword list decides, answer by answer, which of the four STAR elements seem covered: it's the "teacher" that labels the data. With fewer than 20 real answers in the history, that heuristic is the only voice that speaks. From the twentieth answer on, `ml.py` trains a text classifier (TF-IDF + logistic regression, one per STAR element) over everything answered so far, and starts using that model instead of the fixed keyword list — picking up a bit of how *you* actually write, not just isolated words. It retrains on every saved session, and the theme where your historical coverage is lowest goes straight into the prompt for the next round of question generation.
+**History and predictive model.** Every finished session — résumé, JD, questions, answers, report — is saved to SQLite (`backend/db.py`). A keyword list decides, answer by answer, which of the four STAR elements seem covered: it's the "teacher" that labels the data. With fewer than 20 real answers in the history, that heuristic is the only voice that speaks. From the twentieth answer on, `ml.py` trains a text classifier (TF-IDF + logistic regression, one per STAR element) over everything answered so far. Portuguese and English have separate datasets and model artifacts, so one language cannot contaminate the other. It retrains on every saved session, and the theme where your historical coverage is lowest goes straight into the prompt for the next round of question generation.
+
+**Adaptive follow-ups.** The recruiter does not blindly advance after every answer. `/api/follow-up` checks the answer's STAR coverage and length; when important structure is missing, it asks one focused question about the highest-value gap (usually the task, action, or measurable result). If the answer is already complete, the interview continues immediately. This keeps the session conversational without turning every answer into an interrogation.
+
+**Visual progress.** `/api/insights` returns language-filtered aggregates, per-element STAR coverage, weaker themes, and the latest sessions. The report view renders that payload as coverage bars and a compact timeline, making it easy to see whether practice is improving over time.
 
 **Honest limitation:** it's a simple classifier, trained only on what you practice on this machine — it doesn't judge whether your answer is *good*, only whether it structurally seems to cover the four elements of the method, and it needs dozens of answers before it says anything the keyword heuristic wouldn't already say. And since Kokoro and Whisper aren't safe for concurrent calls, the backend serializes both behind a lock — fine for one candidate practicing alone, a bottleneck if this ever had to serve several people at once.
 
@@ -104,7 +111,8 @@ microphone permission).
 backend/
   main.py            FastAPI: every endpoint, plus serving the static frontend.
   db.py              SQLite persistence (backend/data/star_session.db, outside git).
-  ml.py              Predictive model (scikit-learn) for STAR coverage.
+  ml.py              Language-specific predictive models (scikit-learn) for STAR coverage.
+  tests/             Automated tests for persistence, migrations, API fallbacks, follow-ups, and ML isolation.
   requirements.txt
   .env.example
 frontend/
@@ -117,6 +125,17 @@ The frontend records the answer with `MediaRecorder`, sends the audio to `/api/s
 back the transcribed text (not live streaming — it records, stops, then transcribes). The
 question is synthesized once through `/api/tts` and the audio is cached in the browser for the
 session, so "play again" doesn't trigger a new call to Kokoro.
+
+## Testing
+
+```bash
+source backend/.venv/bin/activate
+pytest -q -p no:cacheprovider backend/tests
+```
+
+The suite deliberately avoids loading the heavy Kokoro and Whisper weights. It covers the
+language-aware SQLite schema and legacy migration, separate PT/EN ML artifacts, bilingual local
+fallbacks, adaptive follow-up decisions, and the insights payload used by the visual history.
 
 **Privacy:** `backend/data/` (SQLite database + trained model) and `backend/.env` (your API key)
 stay out of git — the former holds résumé excerpts and the answers you speak during your practice
