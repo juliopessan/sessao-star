@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sessão STAR</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@400..900&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap">
+<style>
+  :root{
+    --bg:#050505;
+    --panel:#111110;
+    --panel-2:#1b1a18;
+    --line:rgba(232,228,220,0.14);
+    --line-strong:rgba(232,228,220,0.28);
+    --text:#e9e5db;
+    --text-dim:#938d80;
+    --text-faint:#5c584f;
+    --accent:#e5690f;
+    --accent-dim:rgba(229,105,15,0.18);
+    --accent-line:rgba(229,105,15,0.55);
+    --bad:#c25a4a;
+    --font-display:'Doto','Space Mono',monospace;
+    --font-mono:'Space Mono','SF Mono',monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-mono);
+    font-size:14px;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent);color:#0a0a0a;}
+  a{color:inherit;}
+  button{font-family:inherit;cursor:pointer;}
+  textarea,input,select{font-family:inherit;}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 32px;}
+
+  .topbar{
+    position:sticky;top:0;z-index:40;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:20px 32px;
+    background:rgba(5,5,5,0.86);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:19px;letter-spacing:0.02em;}
+  .brand .mark{color:var(--accent);}
+  .stagenav{display:flex;gap:0;border:1px solid var(--line);}
+  .stagenav button{
+    background:none;border:none;color:var(--text-faint);
+    padding:9px 16px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;
+    border-right:1px solid var(--line);
+  }
+  .stagenav button:last-child{border-right:none;}
+  .stagenav button.active{color:var(--bg);background:var(--accent);}
+  .stagenav button:not(.active):not(:disabled):hover{color:var(--text);}
+  .stagenav button:disabled{opacity:0.35;cursor:not-allowed;}
+
+  .hero{padding:76px 0 56px;border-bottom:1px solid var(--line);}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-dim);
+    margin-bottom:28px;
+  }
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none;}
+  .dot.live{animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 var(--accent-dim);}50%{opacity:0.55;box-shadow:0 0 0 6px transparent;}}
+
+  h1.headline{
+    font-family:var(--font-display);
+    font-weight:520;
+    font-size:clamp(32px,5vw,58px);
+    line-height:1.08;
+    letter-spacing:0.01em;
+    text-wrap:balance;
+    max-width:16ch;
+    margin:0 0 22px;
+  }
+  .sub{max-width:56ch;color:var(--text-dim);font-size:14.5px;margin-bottom:34px;}
+  .sub b{color:var(--text);font-weight:400;}
+
+  .cta-row{display:flex;flex-wrap:wrap;gap:14px;align-items:center;}
+  .btn{
+    font-size:12px;letter-spacing:0.1em;text-transform:uppercase;
+    padding:14px 22px;border:1px solid var(--line-strong);background:transparent;color:var(--text);
+    transition:border-color .15s,color .15s,background .15s;
+  }
+  .btn:hover:not(:disabled){border-color:var(--text);}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#0a0a0a;font-weight:700;}
+  .btn.primary:hover:not(:disabled){background:#f07d28;border-color:#f07d28;}
+  .btn:disabled{opacity:0.35;cursor:not-allowed;}
+  .btn.ghost{border-color:transparent;color:var(--text-dim);}
+  .btn.ghost:hover{color:var(--text);}
+
+  .note{font-size:11.5px;color:var(--text-faint);margin-top:16px;max-width:52ch;}
+
+  .strip{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line);}
+  .strip .cell{padding:30px 32px;border-right:1px solid var(--line);}
+  .strip .cell:last-child{border-right:none;}
+  .strip .cell svg{width:22px;height:22px;color:var(--accent);margin-bottom:16px;}
+  .strip .cell h3{font-family:var(--font-mono);font-weight:700;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 10px;color:var(--text);}
+  .strip .cell p{margin:0;color:var(--text-dim);font-size:12.5px;line-height:1.65;}
+
+  .stage{display:none;padding:56px 0 90px;}
+  .stage.active{display:block;}
+
+  .stage-head{display:flex;align-items:baseline;justify-content:space-between;gap:24px;margin-bottom:34px;flex-wrap:wrap;}
+  .stage-title{font-family:var(--font-display);font-size:26px;font-weight:520;letter-spacing:0.01em;}
+  .stage-meta{font-size:11px;color:var(--text-faint);letter-spacing:0.08em;text-transform:uppercase;font-variant-numeric:tabular-nums;}
+
+  .setup-grid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:1px;background:var(--line);border:1px solid var(--line);}
+  .setup-left{display:flex;flex-direction:column;gap:1px;background:var(--line);}
+  .panel{background:var(--bg);padding:28px;}
+  .panel-label{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;}
+  .field{margin-bottom:18px;}
+  .field label{display:block;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px;}
+  .field textarea,.field input{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:12px 14px;font-size:13px;resize:vertical;}
+  .field textarea:focus,.field input:focus{border-color:var(--accent-line);}
+  .field textarea{min-height:180px;line-height:1.6;}
+  #jd{min-height:140px;}
+  .field .hint{font-size:11px;color:var(--text-faint);margin-top:6px;}
+  .field input[type="file"]{padding:10px 14px;font-size:12px;color:var(--text-dim);}
+  .field input[type="file"]::file-selector-button{
+    font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;
+    background:var(--accent);color:#0a0a0a;border:none;padding:8px 14px;margin-right:12px;cursor:pointer;
+  }
+  .field input[type="file"]::file-selector-button:hover{background:#f07d28;}
+
+  .qdeck{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);margin-top:2px;}
+  .qcard{background:var(--bg);padding:16px 18px;display:flex;gap:14px;}
+  .qcard .idx{font-family:var(--font-display);font-size:18px;color:var(--accent);flex:none;width:2ch;}
+  .qcard .body{flex:1;min-width:0;}
+  .qcard .theme{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px;}
+  .qcard .q{font-size:13px;color:var(--text);}
+  .empty-note{padding:24px 18px;color:var(--text-faint);font-size:12.5px;background:var(--bg);}
+
+  .console{border:1px solid var(--line);background:var(--panel);}
+  .console-top{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--line);}
+  .progress{font-size:11px;letter-spacing:0.1em;color:var(--text-dim);font-variant-numeric:tabular-nums;}
+  .onair{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;}
+  .onair .dot{background:var(--text-faint);}
+  .onair.active .dot{background:var(--accent);}
+  .onair-label{color:var(--text-dim);}
+  .onair.active .onair-label{color:var(--accent);}
+
+  .cue{padding:48px 40px 30px;text-align:center;}
+  .cue .theme-tag{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:18px;}
+  .cue .qtext{font-family:var(--font-display);font-weight:520;font-size:clamp(20px,3vw,30px);line-height:1.35;max-width:44ch;margin:0 auto;text-wrap:balance;}
+
+  .wave{display:flex;align-items:flex-end;justify-content:center;gap:3px;height:34px;margin:26px auto 0;}
+  .wave span{width:3px;background:var(--text-faint);height:6px;transition:height .12s;}
+  .wave.listening span{background:var(--accent);animation:bar 0.9s ease-in-out infinite;}
+  .wave.speaking span{background:var(--accent-line);animation:bar 1.3s ease-in-out infinite;}
+  .wave span:nth-child(odd){animation-delay:-0.3s;}
+  .wave span:nth-child(3n){animation-delay:-0.6s;}
+  @keyframes bar{0%,100%{height:6px;}50%{height:30px;}}
+  @media (prefers-reduced-motion:reduce){
+    .wave.listening span,.wave.speaking span{animation:none;height:16px;}
+    .dot.live{animation:none;}
+  }
+
+  .transcript-box{border-top:1px solid var(--line);padding:22px 22px 8px;}
+  .transcript-box .tlabel{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-faint);margin-bottom:10px;}
+  .transcript-live{min-height:64px;font-size:13px;color:var(--text);white-space:pre-wrap;border-left:2px solid var(--line-strong);padding-left:14px;margin-bottom:14px;}
+  .transcript-live:empty::before{content:"— aguardando resposta —";color:var(--text-faint);}
+
+  .console-controls{display:flex;flex-wrap:wrap;gap:10px;padding:16px 22px 22px;border-top:1px solid var(--line);}
+
+  .tutor-panel{border-top:1px solid var(--line);padding:22px;background:var(--panel-2);}
+  .tutor-panel .tlabel{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
+  .tutor-feedback{font-size:13px;line-height:1.75;color:var(--text);white-space:pre-wrap;}
+  .support-note{margin:0 22px 18px;font-size:11.5px;color:var(--text-faint);}
+  .error-note{margin:0 22px 18px;font-size:11.5px;color:var(--bad);}
+
+  .transcript-list{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);}
+  .titem{background:var(--bg);padding:22px 24px;}
+  .titem .theme-tag{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+  .titem .q{font-family:var(--font-display);font-size:16px;margin-bottom:12px;line-height:1.4;}
+  .titem .a-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px;}
+  .titem .a{font-size:13px;color:var(--text-dim);border-left:2px solid var(--line-strong);padding-left:12px;white-space:pre-wrap;}
+  .titem .a.skip{color:var(--text-faint);font-style:italic;}
+
+  .report-panel{border:1px solid var(--line);padding:26px;margin-bottom:24px;background:var(--panel);}
+  .report-panel h3{font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-dim);margin:0 0 16px;}
+  .report-body{font-size:13px;line-height:1.75;color:var(--text);white-space:pre-wrap;}
+
+  footer{border-top:1px solid var(--line);padding:26px 32px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-faint);letter-spacing:0.04em;flex-wrap:wrap;gap:8px;}
+
+  @media (max-width:860px){
+    .wrap{padding:0 18px;}
+    .topbar{padding:16px 18px;}
+    .strip{grid-template-columns:1fr;}
+    .strip .cell{border-right:none;border-bottom:1px solid var(--line);}
+    .setup-grid{grid-template-columns:1fr;}
+    .stagenav{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="mark">[ ]</span>SESSÃO STAR</div>
+  <div class="stagenav">
+    <button id="nav-setup" class="active">Dossiê</button>
+    <button id="nav-interview" disabled>Sessão</button>
+    <button id="nav-summary" disabled>Relatório</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <section class="hero">
+    <div class="eyebrow"><span class="dot live"></span>SIMULADOR LOCAL · KOKORO + WHISPER</div>
+    <h1 class="headline">Treine sua próxima entrevista, em voz alta.</h1>
+    <p class="sub">Cole seu currículo, o Claude monta perguntas comportamentais no método <b>Situação · Tarefa · Ação · Resultado</b>, e um recrutador simulado conduz a entrevista falando com você — voz gerada pelo <b>Kokoro TTS</b> e transcrita pelo <b>Whisper</b>, ambos rodando localmente no seu servidor.</p>
+    <div class="cta-row">
+      <button class="btn primary" id="cta-start">[ Ir para o dossiê ]</button>
+      <span class="note" style="margin-top:0;">Este app precisa do backend Python rodando em <code>localhost:8000</code>. Veja o README se a página não carregar as perguntas ou a voz.</span>
+    </div>
+  </section>
+
+  <section class="strip">
+    <div class="cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/></svg>
+      <h3>Voz local</h3>
+      <p>O recrutador fala com a voz do Kokoro TTS; você responde pelo microfone e o Whisper transcreve sua resposta — tudo processado no seu próprio computador.</p>
+    </div>
+    <div class="cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>
+      <h3>Motor STAR</h3>
+      <p>Cruzando o currículo com a descrição da vaga (JD), o Claude gera perguntas comportamentais reais — liderança, conflito, prazo, falha, iniciativa.</p>
+    </div>
+    <div class="cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+      <h3>Relatório de sessão</h3>
+      <p>Ao final, um relatório aponta onde cada resposta cobriu Situação, Tarefa, Ação e Resultado — e onde faltou.</p>
+    </div>
+  </section>
+
+  <!-- ===================== SETUP ===================== -->
+  <section class="stage active" id="stage-setup">
+    <div class="stage-head">
+      <div class="stage-title">01 · Dossiê do candidato</div>
+      <div class="stage-meta" id="setup-meta">exemplo carregado</div>
+    </div>
+
+    <div class="setup-grid">
+      <div class="setup-left">
+        <div class="panel">
+          <div class="panel-label">Currículo do candidato</div>
+          <div class="field">
+            <label for="cv-file">Enviar currículo (PDF, DOCX ou TXT)</label>
+            <input id="cv-file" type="file" accept=".pdf,.docx,.txt,.md">
+            <div class="hint" id="cv-status">Nenhum arquivo enviado — usando o exemplo abaixo.</div>
+          </div>
+          <div class="field">
+            <label for="resume">Ou cole o texto do currículo</label>
+            <textarea id="resume" placeholder="Cole aqui a experiência, cargos, empresas e conquistas..."></textarea>
+            <div class="hint">Quanto mais específico (números, nomes de projetos, ferramentas), melhores as perguntas.</div>
+          </div>
+          <div class="field">
+            <label for="linkedin">URL do LinkedIn (opcional)</label>
+            <input id="linkedin" type="text" placeholder="linkedin.com/in/seu-perfil">
+            <div class="hint">Usada só como referência de contexto — o servidor não acessa o link automaticamente, então cole no currículo o que for relevante de lá.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-label">Descrição da vaga (JD)</div>
+          <div class="field">
+            <label for="role">Título da vaga (opcional)</label>
+            <input id="role" type="text" placeholder="Ex.: Analista de Dados Sênior">
+          </div>
+          <div class="field">
+            <label for="jd">Cole a descrição completa da vaga</label>
+            <textarea id="jd" placeholder="Cole aqui os requisitos, responsabilidades e qualificações da vaga..."></textarea>
+            <div class="hint">O Claude cruza os requisitos da vaga com o histórico do currículo para escolher as perguntas.</div>
+          </div>
+          <button class="btn primary" id="btn-generate">[ Gerar perguntas STAR ]</button>
+          <span class="note" id="gen-status" style="display:inline-block;margin-top:0;margin-left:14px;"></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-label">Terminal de perguntas <span id="qcount">6</span></div>
+        <div class="qdeck" id="qdeck"></div>
+        <button class="btn primary" id="btn-start-interview" style="margin-top:20px;width:100%;">[ Iniciar sessão de voz ]</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== INTERVIEW ===================== -->
+  <section class="stage" id="stage-interview">
+    <div class="stage-head">
+      <div class="stage-title">02 · Sessão de voz</div>
+      <div class="stage-meta" id="interview-meta">KOKORO + WHISPER</div>
+    </div>
+
+    <div class="console">
+      <div class="console-top">
+        <div class="progress" id="progress">[ 01 / 06 ]</div>
+        <div class="onair" id="onair"><span class="dot"></span><span class="onair-label" id="onair-label">EM ESPERA</span></div>
+      </div>
+
+      <div class="cue">
+        <div class="theme-tag" id="cue-theme">LIDERANÇA</div>
+        <p class="qtext" id="cue-question">Carregando pergunta…</p>
+        <div class="wave" id="wave"></div>
+      </div>
+
+      <div class="transcript-box">
+        <div class="tlabel">Sua resposta (transcrita pelo Whisper — pode editar)</div>
+        <div class="transcript-live" id="transcript-live" contenteditable="true"></div>
+      </div>
+
+      <div class="console-controls" id="console-controls">
+        <button class="btn" id="btn-replay">[ Ouvir pergunta de novo ]</button>
+        <button class="btn primary" id="btn-mic">[ ● Gravar resposta ]</button>
+        <button class="btn ghost" id="btn-skip">Pular treino</button>
+        <button class="btn" id="btn-next" disabled>[ Ver feedback do tutor → ]</button>
+      </div>
+
+      <div class="tutor-panel" id="tutor-panel" hidden>
+        <div class="tlabel">Feedback do tutor</div>
+        <div class="tutor-feedback" id="tutor-feedback">Analisando sua resposta de treino…</div>
+        <button class="btn primary" id="btn-start-real" style="margin-top:16px;">[ Começar entrevista real → ]</button>
+      </div>
+
+      <div class="support-note" id="voice-support-note"></div>
+      <div class="error-note" id="voice-error-note" hidden></div>
+    </div>
+  </section>
+
+  <!-- ===================== SUMMARY ===================== -->
+  <section class="stage" id="stage-summary">
+    <div class="stage-head">
+      <div class="stage-title">03 · Relatório de sessão</div>
+      <div class="stage-meta" id="summary-meta"></div>
+    </div>
+
+    <div class="report-panel">
+      <h3>Avaliação geral</h3>
+      <div class="report-body" id="report-body">Gerando avaliação…</div>
+    </div>
+
+    <div class="transcript-list" id="transcript-list"></div>
+
+    <div class="cta-row" style="margin-top:24px;">
+      <button class="btn" id="btn-copy">[ Copiar transcrição ]</button>
+      <button class="btn primary" id="btn-restart">[ Nova sessão ]</button>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <span>SESSÃO STAR © 2026</span>
+  <span>Voz: Kokoro TTS + Whisper (local) · Perguntas e avaliação: Claude API quando configurada</span>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  var EXAMPLE_RESUME = "Analista de Operações na Norteluz Logística (2021–2026). Liderei um time de 4 pessoas na migração do sistema de rastreamento de pedidos, reduzindo erros de entrega em 23% no primeiro trimestre. Coordenei um projeto com prazo apertado de 3 semanas para atender uma nova exigência regulatória, negociando prioridades com o time de TI. Antes disso, atendimento ao cliente na Vetta Seguros, onde propus um novo roteiro de atendimento que caiu o tempo médio de chamada em 40 segundos. Formação em Administração, cursos de Excel avançado e Power BI.";
+  var EXAMPLE_JD = "Vaga: Coordenador(a) de Operações — Norteluz Logística busca profissional para liderar a equipe de rastreamento e atendimento, com responsabilidade por SLAs de entrega, gestão de prazos regulatórios e interface direta com o time de TI. Requisitos: experiência liderando equipes pequenas, histórico de redução de erros/retrabalho, familiaridade com Power BI para acompanhamento de indicadores, e capacidade de negociar prioridades sob prazo apertado.";
+
+  var STAGES = ["setup","interview","summary"];
+  var PRACTICE_QUESTION = "Para começar, vamos treinar: conte sobre uma vez em que você teve que resolver um problema inesperado bem na hora — no trabalho, na faculdade, ou em qualquer outro contexto do dia a dia.";
+  var PRACTICE_INTRO = "Antes de começarmos de verdade, uma explicação rápida sobre o método STAR. Toda boa resposta de entrevista comportamental cobre quatro partes: a Situação em que você estava, a Tarefa que era sua responsabilidade, a Ação que você tomou, e o Resultado que você alcançou. Vamos treinar com uma pergunta simples, essa não conta pra nota final. ";
+
+  var state = {
+    phase: "practice",
+    questions: [],
+    index: 0,
+    transcripts: [],
+    jd: "",
+    recording: false,
+    mediaRecorder: null,
+    chunks: [],
+    currentAudio: null
+  };
+
+  function $(id){ return document.getElementById(id); }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  // ---------- stage switching ----------
+  function goTo(stage){
+    STAGES.forEach(function(s){
+      $("stage-"+s).classList.toggle("active", s === stage);
+      $("nav-"+s).classList.toggle("active", s === stage);
+    });
+    window.scrollTo({top:0, behavior:"smooth"});
+  }
+  $("nav-setup").addEventListener("click", function(){ goTo("setup"); });
+  $("nav-interview").addEventListener("click", function(){ if(!$("nav-interview").disabled) goTo("interview"); });
+  $("nav-summary").addEventListener("click", function(){ if(!$("nav-summary").disabled) goTo("summary"); });
+  $("cta-start").addEventListener("click", function(){ goTo("setup"); $("resume").focus(); });
+
+  // ---------- local fallback question bank (usado se o backend estiver fora do ar) ----------
+  var SKILLS = ["liderança","dados","vendas","atendimento","projeto","logística","financeiro","marketing","TI","engenharia","produto","operações","suporte","design","recursos humanos","qualidade"];
+  function detectArea(text){
+    var lower = text.toLowerCase();
+    for (var i=0;i<SKILLS.length;i++){ if (lower.indexOf(SKILLS[i]) !== -1) return SKILLS[i]; }
+    return "sua área";
+  }
+  function localQuestions(resume, role, jd){
+    var area = detectArea((resume || "") + "\n" + (jd || ""));
+    var alvo = role ? (" para a vaga de " + role) : "";
+    return [
+      {theme:"Liderança", question:"Conte sobre uma vez em que você liderou uma pessoa ou um time em "+area+alvo+". Qual era a situação, o que estava sob sua responsabilidade, o que você fez e qual foi o resultado?"},
+      {theme:"Conflito", question:"Descreva um conflito real que você teve com um colega, cliente ou gestor. O que causou o desentendimento, que ação você tomou e como isso terminou?"},
+      {theme:"Prazo apertado", question:"Fale sobre um projeto com prazo muito curto que você precisou entregar. Como era o cenário, o que ficou sob sua responsabilidade, o que você fez para dar conta e qual foi o resultado final?"},
+      {theme:"Falha e aprendizado", question:"Conte sobre um erro ou uma decisão que não deu certo. Qual era o contexto, o que você fez diante disso e o que mudou depois?"},
+      {theme:"Iniciativa", question:"Dê um exemplo de algo que você propôs sem que ninguém tivesse pedido. Qual era a situação, sua tarefa, a ação tomada e o impacto medido?"},
+      {theme:"Trabalho em equipe", question:"Descreva uma entrega que dependeu fortemente de outras pessoas ou áreas. Qual era o objetivo comum, seu papel específico, o que você fez para alinhar todo mundo e o resultado alcançado?"}
+    ];
+  }
+
+  function renderQuestionDeck(){
+    var deck = $("qdeck");
+    deck.innerHTML = "";
+    $("qcount").textContent = state.questions.length;
+    if (!state.questions.length){
+      deck.innerHTML = '<div class="empty-note">Nenhuma pergunta ainda. Envie o currículo, cole a JD e gere a sessão.</div>';
+      return;
+    }
+    state.questions.forEach(function(q, i){
+      var el = document.createElement("div");
+      el.className = "qcard";
+      el.innerHTML = '<div class="idx">'+String(i+1).padStart(2,"0")+'</div><div class="body"><div class="theme">'+escapeHtml(q.theme)+'</div><div class="q">'+escapeHtml(q.question)+'</div></div>';
+      deck.appendChild(el);
+    });
+  }
+
+  // ---------- init with example ----------
+  $("resume").value = EXAMPLE_RESUME;
+  $("jd").value = EXAMPLE_JD;
+  state.questions = localQuestions(EXAMPLE_RESUME, "", EXAMPLE_JD);
+  renderQuestionDeck();
+
+  // ---------- upload de currículo (PDF/DOCX/TXT) ----------
+  $("cv-file").addEventListener("change", function(){
+    var file = this.files[0];
+    if (!file) return;
+    var status = $("cv-status");
+    status.textContent = "Extraindo texto de " + file.name + "…";
+
+    var form = new FormData();
+    form.append("file", file);
+    fetch("/api/extract-resume", {method: "POST", body: form})
+      .then(function(r){
+        if (!r.ok) return r.json().then(function(err){ throw new Error(err.detail || ("http " + r.status)); });
+        return r.json();
+      })
+      .then(function(data){
+        $("resume").value = data.text;
+        status.textContent = "Currículo extraído de " + data.filename + " (" + data.text.length + " caracteres) — revise antes de gerar as perguntas.";
+      })
+      .catch(function(err){
+        status.textContent = "Não consegui ler esse arquivo (" + (err.message || "erro") + "). Cole o texto do currículo manualmente abaixo.";
+      });
+  });
+
+  // ---------- generate questions via backend ----------
+  $("btn-generate").addEventListener("click", function(){
+    var resume = $("resume").value.trim();
+    var linkedin = $("linkedin").value.trim();
+    var role = $("role").value.trim();
+    var jd = $("jd").value.trim();
+    if (!resume){
+      $("gen-status").textContent = "Envie ou cole o currículo primeiro.";
+      return;
+    }
+    var btn = $("btn-generate");
+    btn.disabled = true;
+    $("gen-status").textContent = "Analisando dossiê e vaga…";
+    $("setup-meta").textContent = "gerando…";
+
+    fetch("/api/questions", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({resume: resume, role: role, jd: jd, linkedin: linkedin})
+    }).then(function(r){
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    }).then(function(data){
+      var qs = data.questions || [];
+      if (!qs.length) throw new Error("sem perguntas");
+      state.questions = qs;
+      renderQuestionDeck();
+      $("setup-meta").textContent = data.source === "claude" ? "perguntas personalizadas geradas" : "perguntas locais geradas (sem Claude API)";
+    }).catch(function(){
+      state.questions = localQuestions(resume, role, jd);
+      renderQuestionDeck();
+      $("setup-meta").textContent = "backend indisponível — perguntas locais no navegador";
+    }).finally(function(){
+      btn.disabled = false;
+      $("gen-status").textContent = "";
+    });
+  });
+
+  // ---------- waveform ----------
+  var waveEl = $("wave");
+  for (var i=0;i<24;i++){ var s=document.createElement("span"); waveEl.appendChild(s); }
+
+  function setOnAir(mode){
+    var onair = $("onair"), label = $("onair-label");
+    var role = state.phase === "practice" ? "TUTOR" : "RECRUTADOR";
+    waveEl.classList.remove("listening","speaking");
+    if (mode === "speaking"){ onair.classList.add("active"); label.textContent = role + " FALANDO"; waveEl.classList.add("speaking"); }
+    else if (mode === "listening"){ onair.classList.add("active"); label.textContent = "GRAVANDO"; waveEl.classList.add("listening"); }
+    else if (mode === "processing"){ onair.classList.add("active"); label.textContent = "TRANSCREVENDO"; }
+    else { onair.classList.remove("active"); label.textContent = "EM ESPERA"; }
+  }
+
+  function showError(msg){
+    var el = $("voice-error-note");
+    el.textContent = msg;
+    el.hidden = !msg;
+  }
+
+  // ---------- Kokoro TTS via backend ----------
+  var ttsCache = {};
+
+  // Enquanto o Kokoro está falando, o microfone fica travado — do contrário a
+  // caixa de som vaza pro mic e o Whisper transcreve a própria pergunta (eco).
+  function lockMicWhileSpeaking(locked){
+    if (canRecord && !state.recording) $("btn-mic").disabled = locked;
+    $("btn-replay").disabled = locked;
+  }
+
+  function speak(text, onDone){
+    showError("");
+    if (state.recording) stopRecording();
+    if (state.currentAudio){ state.currentAudio.pause(); state.currentAudio = null; }
+    lockMicWhileSpeaking(true);
+    var finish = function(){ lockMicWhileSpeaking(false); if (onDone) onDone(); };
+    var cached = ttsCache[text];
+    var playBlob = function(blob){
+      var url = URL.createObjectURL(blob);
+      var audio = new Audio(url);
+      state.currentAudio = audio;
+      audio.addEventListener("play", function(){ setOnAir("speaking"); });
+      audio.addEventListener("ended", function(){ setOnAir("idle"); URL.revokeObjectURL(url); finish(); });
+      audio.play().catch(function(){ setOnAir("idle"); finish(); });
+    };
+    if (cached){ playBlob(cached); return; }
+    fetch("/api/tts", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({text: text})
+    }).then(function(r){
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.blob();
+    }).then(function(blob){
+      ttsCache[text] = blob;
+      playBlob(blob);
+    }).catch(function(){
+      showError("Não consegui gerar a voz (Kokoro). O backend está rodando? Você ainda pode ler a pergunta acima.");
+      finish();
+    });
+  }
+
+  // ---------- Whisper STT via backend (gravação com MediaRecorder) ----------
+  var canRecord = !!(navigator.mediaDevices && window.MediaRecorder);
+  if (!canRecord){
+    $("voice-support-note").textContent = "Gravação de áudio não disponível neste navegador — digite sua resposta diretamente na caixa de transcrição.";
+    $("btn-mic").disabled = true;
+  } else {
+    $("voice-support-note").textContent = "Clique em \"Gravar resposta\", fale, e clique de novo para parar e transcrever com o Whisper.";
+  }
+
+  function startRecording(){
+    showError("");
+    // Nunca grava com o Kokoro ainda tocando — evita o mic captar a própria pergunta (eco).
+    if (state.currentAudio){ state.currentAudio.pause(); state.currentAudio = null; }
+    $("btn-replay").disabled = true;
+    navigator.mediaDevices.getUserMedia({
+      audio: {echoCancellation: true, noiseSuppression: true, autoGainControl: true}
+    }).then(function(stream){
+      state.chunks = [];
+      var mr = new MediaRecorder(stream);
+      state.mediaRecorder = mr;
+      mr.ondataavailable = function(e){ if (e.data && e.data.size) state.chunks.push(e.data); };
+      mr.onstop = function(){
+        stream.getTracks().forEach(function(t){ t.stop(); });
+        var blob = new Blob(state.chunks, {type: mr.mimeType || "audio/webm"});
+        transcribe(blob);
+      };
+      mr.start();
+      state.recording = true;
+      setOnAir("listening");
+      $("btn-mic").textContent = "[ ■ Parar e transcrever ]";
+    }).catch(function(){
+      showError("Não consegui acessar o microfone. Verifique a permissão do navegador.");
+      $("btn-replay").disabled = false;
+    });
+  }
+
+  function stopRecording(){
+    if (state.mediaRecorder && state.recording){
+      state.recording = false;
+      $("btn-mic").disabled = true;
+      $("btn-mic").textContent = "[ ● Gravar resposta ]";
+      setOnAir("processing");
+      state.mediaRecorder.stop();
+    }
+  }
+
+  function transcribe(blob){
+    var form = new FormData();
+    form.append("audio", blob, "resposta.webm");
+    fetch("/api/stt", {method: "POST", body: form})
+      .then(function(r){
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then(function(data){
+        var box = $("transcript-live");
+        var prev = box.textContent.trim();
+        box.textContent = prev ? (prev + " " + (data.text || "")).trim() : (data.text || "");
+        $("btn-next").disabled = false;
+        setOnAir("idle");
+      })
+      .catch(function(){
+        showError("Não consegui transcrever com o Whisper. O backend está rodando? Digite sua resposta manualmente.");
+        setOnAir("idle");
+      })
+      .finally(function(){
+        $("btn-mic").disabled = false;
+        $("btn-replay").disabled = false;
+      });
+  }
+
+  $("btn-mic").addEventListener("click", function(){
+    if (!canRecord) return;
+    if (state.recording) stopRecording(); else startRecording();
+  });
+
+  // ---------- interview flow ----------
+  $("btn-start-interview").addEventListener("click", function(){
+    if (!state.questions.length) return;
+    state.index = 0;
+    state.transcripts = [];
+    state.jd = $("jd").value.trim();
+    ttsCache = {};
+    $("nav-interview").disabled = false;
+    goTo("interview");
+    startPractice();
+  });
+
+  // ---------- rodada de treino com o tutor (não conta pra avaliação final) ----------
+  function startPractice(){
+    state.phase = "practice";
+    $("interview-meta").textContent = "TUTOR · RODADA DE TREINO";
+    $("cue-theme").textContent = "TUTORIAL · TREINO";
+    $("progress").textContent = "[ TREINO ]";
+    $("cue-question").textContent = PRACTICE_QUESTION;
+    $("transcript-live").textContent = "";
+    $("tutor-panel").hidden = true;
+    $("console-controls").hidden = false;
+    $("btn-skip").textContent = "Pular treino";
+    $("btn-next").textContent = "[ Ver feedback do tutor → ]";
+    $("btn-next").disabled = true;
+    if (state.recording) stopRecording();
+    speak(PRACTICE_INTRO + PRACTICE_QUESTION);
+  }
+
+  function showTutorFeedback(){
+    var answer = $("transcript-live").textContent.trim();
+    $("console-controls").hidden = true;
+    $("tutor-panel").hidden = false;
+    $("tutor-feedback").textContent = "Analisando sua resposta de treino…";
+    fetch("/api/tutor-feedback", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({question: PRACTICE_QUESTION, answer: answer})
+    }).then(function(r){
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    }).then(function(data){
+      $("tutor-feedback").textContent = data.feedback;
+    }).catch(function(){
+      $("tutor-feedback").textContent = "Não consegui gerar o feedback do tutor agora — mas você já pode seguir para a entrevista real.";
+    });
+  }
+
+  $("btn-start-real").addEventListener("click", function(){
+    $("tutor-panel").hidden = true;
+    $("console-controls").hidden = false;
+    $("btn-skip").textContent = "Pular pergunta";
+    state.phase = "real";
+    state.index = 0;
+    loadQuestion();
+  });
+
+  function loadQuestion(){
+    var q = state.questions[state.index];
+    $("interview-meta").textContent = "KOKORO + WHISPER";
+    $("cue-theme").textContent = q.theme;
+    $("cue-question").textContent = q.question;
+    $("progress").textContent = "[ "+String(state.index+1).padStart(2,"0")+" / "+String(state.questions.length).padStart(2,"0")+" ]";
+    $("transcript-live").textContent = "";
+    $("btn-next").disabled = true;
+    $("btn-next").textContent = (state.index === state.questions.length - 1) ? "[ Finalizar sessão → ]" : "[ Próxima pergunta → ]";
+    if (state.recording) stopRecording();
+    speak(q.question);
+  }
+
+  $("btn-replay").addEventListener("click", function(){
+    if (state.phase === "practice") speak(PRACTICE_INTRO + PRACTICE_QUESTION);
+    else speak(state.questions[state.index].question);
+  });
+
+  function commitAnswer(skipped){
+    var answer = $("transcript-live").textContent.trim();
+    state.transcripts.push({
+      theme: state.questions[state.index].theme,
+      question: state.questions[state.index].question,
+      answer: skipped ? "" : answer,
+      skipped: !!skipped
+    });
+  }
+
+  $("btn-skip").addEventListener("click", function(){
+    if (state.recording) stopRecording();
+    if (state.phase === "practice"){
+      // pula o treino inteiro (sem feedback) e vai direto pra entrevista real
+      state.phase = "real";
+      state.index = 0;
+      loadQuestion();
+      return;
+    }
+    commitAnswer(true);
+    advance();
+  });
+
+  $("btn-next").addEventListener("click", function(){
+    if (state.recording) stopRecording();
+    if (state.phase === "practice"){
+      showTutorFeedback();
+      return;
+    }
+    commitAnswer(false);
+    advance();
+  });
+
+  function advance(){
+    if (state.index < state.questions.length - 1){
+      state.index += 1;
+      loadQuestion();
+    } else {
+      finishInterview();
+    }
+  }
+
+  function finishInterview(){
+    if (state.currentAudio) state.currentAudio.pause();
+    $("nav-summary").disabled = false;
+    $("summary-meta").textContent = state.transcripts.length + " respostas registradas";
+    renderTranscriptList();
+    goTo("summary");
+    buildReport();
+  }
+
+  function renderTranscriptList(){
+    var list = $("transcript-list");
+    list.innerHTML = "";
+    state.transcripts.forEach(function(t){
+      var el = document.createElement("div");
+      el.className = "titem";
+      var ans = t.skipped
+        ? '<div class="a skip">— pergunta pulada —</div>'
+        : '<div class="a">'+escapeHtml(t.answer || "(sem resposta)")+'</div>';
+      el.innerHTML = '<div class="theme-tag">'+escapeHtml(t.theme)+'</div><div class="q">'+escapeHtml(t.question)+'</div><div class="a-label">Resposta</div>'+ans;
+      list.appendChild(el);
+    });
+  }
+
+  function buildReport(){
+    var body = $("report-body");
+    var answered = state.transcripts.filter(function(t){ return !t.skipped && t.answer; });
+    if (!answered.length){
+      body.textContent = "Nenhuma resposta foi registrada nesta sessão.";
+      return;
+    }
+    body.textContent = "Avaliando respostas…";
+    fetch("/api/report", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({transcripts: state.transcripts, jd: state.jd || ""})
+    }).then(function(r){
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    }).then(function(data){
+      body.textContent = data.report;
+    }).catch(function(){
+      body.textContent = "Não consegui gerar a avaliação — o backend está rodando?";
+    });
+  }
+
+  $("btn-copy").addEventListener("click", function(){
+    var text = state.transcripts.map(function(t,i){
+      return (i+1)+". ["+t.theme+"] "+t.question+"\nResposta: "+(t.skipped ? "(pulada)" : t.answer);
+    }).join("\n\n");
+    navigator.clipboard && navigator.clipboard.writeText(text).then(function(){
+      var btn = $("btn-copy");
+      var orig = btn.textContent;
+      btn.textContent = "[ Copiado ]";
+      setTimeout(function(){ btn.textContent = orig; }, 1600);
+    });
+  });
+
+  $("btn-restart").addEventListener("click", function(){
+    state.transcripts = [];
+    state.index = 0;
+    $("nav-interview").disabled = true;
+    $("nav-summary").disabled = true;
+    goTo("setup");
+  });
+
+})();
+</script>
+</body>
+</html>
