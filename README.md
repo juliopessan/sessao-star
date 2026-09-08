@@ -1,6 +1,6 @@
 # STAR Session
 
-![STAR Session — home screen](docs/screenshot.png)
+![STAR Session — authenticated interview workspace](docs/screenshot.png)
 
 ## Why this exists
 
@@ -12,15 +12,16 @@ STAR Session was built to solve both at once: questions that cross-reference *yo
 
 ## What it does
 
-0. You pick the language from the flag at the top (🇧🇷 Portuguese or 🇺🇸 English) — résumé, job, questions, voice, and report all follow that choice end to end.
-1. You upload your résumé (PDF, DOCX, TXT, or pasted directly) and paste the job description (JD).
-2. Claude cross-references both and puts together 6 behavioral questions using the STAR method — including questions that deliberately probe a job requirement your résumé doesn't yet prove.
-3. Before anything counts, a practice round with a tutor briefly explains the method and gives feedback on a warm-up answer, none of which affects the final score.
-4. The real interview starts: a simulated recruiter speaks each question out loud, you answer through the microphone, and the transcript appears on screen — editable, in case Whisper mishears a word.
-5. If an answer is too short or misses key STAR elements, the recruiter asks one targeted follow-up before moving on — then merges both parts into the final transcript.
-6. At the end, a report points out, question by question, where your answer covered Situation, Task, Action, and Result — and where it fell short.
-7. The session is saved to your local history. The report now includes coverage bars and a timeline of recent sessions so progress is visible, not just described.
-8. Once enough answers pile up, language-specific models trained on your own response patterns start aiming future questions exactly at the themes where you tend to drop the ball.
+0. You arrive at a public landing page, create an account or sign in, and enter a private practice workspace.
+1. You pick the language from the flag at the top (🇧🇷 Portuguese or 🇺🇸 English) — résumé, job, questions, voice, and report all follow that choice end to end.
+2. You upload your résumé (PDF, DOCX, TXT, or pasted directly) and paste the job description (JD).
+3. Claude cross-references both and puts together 6 behavioral questions using the STAR method — including questions that deliberately probe a job requirement your résumé doesn't yet prove.
+4. Before anything counts, a practice round with a tutor briefly explains the method and gives feedback on a warm-up answer, none of which affects the final score.
+5. The real interview starts: a simulated recruiter speaks each question out loud, you answer through the microphone, and the transcript appears on screen — editable, in case Whisper mishears a word.
+6. If an answer is too short or misses key STAR elements, the recruiter asks one targeted follow-up before moving on — then merges both parts into the final transcript.
+7. At the end, a report points out, question by question, where your answer covered Situation, Task, Action, and Result — and where it fell short.
+8. The session is saved to your local history. The report now includes coverage bars and a timeline of recent sessions so progress is visible, not just described.
+9. Once enough answers pile up, language-specific models trained on your own response patterns start aiming future questions exactly at the themes where you tend to drop the ball.
 
 ## How it works under the hood
 
@@ -29,9 +30,9 @@ browser  <-- plain HTML/CSS/JS, no build step
     |
     | fetch()
     v
-FastAPI (backend/main.py)
-    |-- /api/extract-resume  -> pypdf / python-docx
+FastAPI (backend/main.py)  <-- / public landing · /login auth · /app workspace
     |-- /api/auth/*         -> SQLite users + expiring httpOnly cookie
+    |-- /api/extract-resume  -> pypdf / python-docx
     |-- /api/questions       -> Claude API (fallback: local heuristic)
     |-- /api/tts             -> Kokoro TTS   (lock: 1 call at a time)
     |-- /api/stt             -> Whisper      (lock: 1 call at a time)
@@ -91,6 +92,17 @@ uvicorn main:app --reload
 Open http://localhost:8000 in your browser (Chrome or Edge recommended, for more reliable
 microphone permission).
 
+The first visit opens the public landing page. Create an account or sign in, then the application
+takes you to `/app`, the authenticated interview workspace. On a local installation, the first
+account claims any legacy SQLite sessions already present, including the saved gold test.
+
+## Deployment note
+
+The complete application is designed for a persistent Python host, not a Vercel-only deployment:
+Kokoro and Whisper download large model weights, and SQLite needs a persistent filesystem. You can
+serve the static landing page from Vercel, but the full product should run the FastAPI backend on a
+persistent service or VM, with a persistent database and HTTPS (`AUTH_COOKIE_SECURE=1`).
+
 ## First run
 
 - **Kokoro** downloads its model weights (a few hundred MB) on the first call to `/api/tts`.
@@ -148,6 +160,10 @@ registration/login/logout protection for the workspace.
 **Privacy:** `backend/data/` (SQLite database + trained model) and `backend/.env` (your API key)
 stay out of git — the former holds account hashes, expiring session records, résumé excerpts and
 the answers you speak during your practice interviews.
+
+The local authentication flow is intentionally small: it has no email verification, password reset,
+MFA, or managed identity provider. That is appropriate for a personal or single-host practice
+workspace; production multi-tenant deployments should replace it with a managed identity service.
 
 ## Common issues
 
