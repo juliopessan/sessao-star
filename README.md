@@ -103,7 +103,7 @@ microphone permission).
 ```
 backend/
   main.py            FastAPI: every endpoint, plus serving the static frontend.
-  db.py              SQLite persistence (backend/data/sessao_star.db, outside git).
+  db.py              SQLite persistence (backend/data/star_session.db, outside git).
   ml.py              Predictive model (scikit-learn) for STAR coverage.
   requirements.txt
   .env.example

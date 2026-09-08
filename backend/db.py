@@ -1,9 +1,9 @@
-"""Persistência local em SQLite das sessões de entrevista.
+"""Local SQLite persistence for interview sessions.
 
-Guarda cada sessão (currículo/JD resumidos, perguntas, respostas e relatório
-final) para que o módulo `ml.py` possa aprender, com o tempo, os padrões de
-resposta do candidato. Todo o banco fica em `backend/data/`, fora do git —
-contém trechos de currículo e respostas faladas, então é dado sensível local.
+Stores every session (résumé/JD excerpts, questions, answers, and final
+report) so the `ml.py` module can learn the candidate's answer patterns over
+time. The whole database lives under `backend/data/`, outside git — it holds
+résumé excerpts and spoken answers, which is sensitive local data.
 """
 
 import sqlite3
@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Callable, List, Optional
 
-DB_PATH = Path(__file__).resolve().parent / "data" / "sessao_star.db"
+DB_PATH = Path(__file__).resolve().parent / "data" / "star_session.db"
 
 
 def get_conn() -> sqlite3.Connection:
@@ -46,10 +46,10 @@ def init_db() -> None:
             answer TEXT NOT NULL DEFAULT '',
             skipped INTEGER NOT NULL DEFAULT 0,
             word_count INTEGER NOT NULL DEFAULT 0,
-            cov_situacao INTEGER NOT NULL DEFAULT 0,
-            cov_tarefa INTEGER NOT NULL DEFAULT 0,
-            cov_acao INTEGER NOT NULL DEFAULT 0,
-            cov_resultado INTEGER NOT NULL DEFAULT 0
+            cov_situation INTEGER NOT NULL DEFAULT 0,
+            cov_task INTEGER NOT NULL DEFAULT 0,
+            cov_action INTEGER NOT NULL DEFAULT 0,
+            cov_result INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE INDEX IF NOT EXISTS idx_answers_session ON answers(session_id);
@@ -85,7 +85,7 @@ def save_session(
         conn.execute(
             """INSERT INTO answers
                (session_id, idx, theme, question, answer, skipped, word_count,
-                cov_situacao, cov_tarefa, cov_acao, cov_resultado)
+                cov_situation, cov_task, cov_action, cov_result)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 session_id,
@@ -95,10 +95,10 @@ def save_session(
                 answer,
                 1 if skipped else 0,
                 len(answer.split()) if answer else 0,
-                1 if "situação" in covered else 0,
-                1 if "tarefa" in covered else 0,
-                1 if "ação" in covered else 0,
-                1 if "resultado" in covered else 0,
+                1 if "situation" in covered else 0,
+                1 if "task" in covered else 0,
+                1 if "action" in covered else 0,
+                1 if "result" in covered else 0,
             ),
         )
     conn.commit()
@@ -107,7 +107,7 @@ def save_session(
 
 
 def all_answers() -> List[dict]:
-    """Todas as respostas reais (não puladas, não vazias) já registradas — usadas para treinar o modelo."""
+    """Every real answer recorded so far (not skipped, not empty) — used to train the model."""
     conn = get_conn()
     rows = conn.execute("SELECT * FROM answers WHERE skipped = 0 AND answer != ''").fetchall()
     conn.close()
@@ -119,10 +119,10 @@ def theme_stats() -> List[dict]:
     rows = conn.execute(
         """SELECT theme,
                   COUNT(*) AS n,
-                  AVG(cov_situacao) AS situacao,
-                  AVG(cov_tarefa) AS tarefa,
-                  AVG(cov_acao) AS acao,
-                  AVG(cov_resultado) AS resultado,
+                  AVG(cov_situation) AS situation,
+                  AVG(cov_task) AS task,
+                  AVG(cov_action) AS action,
+                  AVG(cov_result) AS result,
                   AVG(word_count) AS avg_words
            FROM answers
            WHERE skipped = 0 AND answer != ''

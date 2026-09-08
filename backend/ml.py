@@ -1,14 +1,14 @@
-"""Modelo preditivo de cobertura STAR, treinado a partir do histórico local.
+"""Predictive model for STAR coverage, trained from the local history.
 
-Início "frio" (poucas respostas no banco): usa a heurística de palavras-chave
-de `star_coverage()` (definida em main.py) como único juiz.
+Cold start (few answers in the database): uses the keyword heuristic from
+`star_coverage()` (defined in main.py) as the sole judge.
 
-Depois de MIN_SAMPLES_TO_TRAIN respostas reais acumuladas em `db.py`, treina
-um classificador por elemento do STAR (Situação/Tarefa/Ação/Resultado) sobre
-o texto das respostas — usando a heurística como rótulo de treino (o professor
-que ensina o modelo) — e passa a usar esse modelo para prever cobertura em
-respostas novas, capturando padrões de texto que a lista fixa de palavras-chave
-não cobre. Reaprende a cada sessão salva, então melhora com o uso.
+Once MIN_SAMPLES_TO_TRAIN real answers have accumulated in `db.py`, trains a
+classifier per STAR element (Situation/Task/Action/Result) over the answer
+text — using the heuristic as the training label (the teacher that trains the
+model) — and starts using that model to predict coverage on new answers,
+picking up text patterns the fixed keyword list doesn't. Retrains on every
+saved session, so it improves with use.
 """
 
 from pathlib import Path
@@ -21,12 +21,12 @@ import db
 MODEL_PATH = Path(__file__).resolve().parent / "data" / "star_model.joblib"
 MIN_SAMPLES_TO_TRAIN = 20
 
-STAR_LABELS = ["situação", "tarefa", "ação", "resultado"]
+STAR_LABELS = ["situation", "task", "action", "result"]
 _COLUMN_BY_LABEL = {
-    "situação": "cov_situacao",
-    "tarefa": "cov_tarefa",
-    "ação": "cov_acao",
-    "resultado": "cov_resultado",
+    "situation": "cov_situation",
+    "task": "cov_task",
+    "action": "cov_action",
+    "result": "cov_result",
 }
 
 _model_cache = None
@@ -54,7 +54,7 @@ def model_status() -> dict:
 
 
 def train() -> Optional[dict]:
-    """Retreina o modelo com tudo que já está no banco. Chamado após cada sessão salva."""
+    """Retrains the model with everything already in the database. Called after every saved session."""
     rows = db.all_answers()
     if len(rows) < MIN_SAMPLES_TO_TRAIN:
         return None
@@ -69,9 +69,9 @@ def train() -> Optional[dict]:
     for label, column in _COLUMN_BY_LABEL.items():
         y = [r[column] for r in rows]
         if len(set(y)) < 2:
-            # sem exemplos das duas classes ainda — não dá pra aprender esse
-            # elemento; usa um classificador "burro" que sempre prevê o que
-            # foi observado, em vez de travar o treino dos outros três.
+            # no examples of both classes yet — this element can't be learned;
+            # fall back to a "dumb" classifier that always predicts whatever
+            # was observed, instead of blocking training for the other three.
             clf = DummyClassifier(strategy="constant", constant=int(y[0]))
         else:
             clf = Pipeline([
@@ -92,9 +92,9 @@ def train() -> Optional[dict]:
 
 
 def predict_coverage(answer: str) -> Optional[List[str]]:
-    """Elementos STAR que o modelo treinado prevê que a resposta cobre.
-    Retorna None (sinal para o chamador usar a heurística) se o modelo ainda
-    não foi treinado ou a resposta está vazia."""
+    """STAR elements the trained model predicts this answer covers.
+    Returns None (a signal for the caller to use the heuristic instead) if the
+    model hasn't been trained yet or the answer is empty."""
     model = _load_model()
     if model is None or not (answer or "").strip():
         return None
@@ -102,12 +102,12 @@ def predict_coverage(answer: str) -> Optional[List[str]]:
 
 
 def weak_theme_profile(limit: int = 3) -> List[dict]:
-    """Temas (categorias de pergunta) onde o candidato historicamente cobre
-    menos elementos do STAR, dos mais fracos pra menos fracos."""
+    """Themes (question categories) where the candidate historically covers
+    fewer STAR elements, weakest first."""
     stats = db.theme_stats()
     scored = []
     for s in stats:
-        avg_cov = ((s["situacao"] or 0) + (s["tarefa"] or 0) + (s["acao"] or 0) + (s["resultado"] or 0)) / 4.0
+        avg_cov = ((s["situation"] or 0) + (s["task"] or 0) + (s["action"] or 0) + (s["result"] or 0)) / 4.0
         scored.append({
             "theme": s["theme"],
             "n": s["n"],

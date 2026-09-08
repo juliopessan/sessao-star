@@ -23,7 +23,7 @@ load_dotenv()
 BACKEND_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BACKEND_DIR.parent / "frontend"
 
-app = FastAPI(title="Sessão STAR")
+app = FastAPI(title="STAR Session")
 
 
 @app.on_event("startup")
@@ -46,8 +46,8 @@ _kokoro_lock = threading.Lock()
 
 
 def get_kokoro_pipeline(lang_code: str):
-    """Carrega o pipeline Kokoro para o idioma pedido ('p' = português do Brasil,
-    'a' = inglês americano) uma única vez, mantendo um por idioma."""
+    """Loads the Kokoro pipeline for the requested language ('p' = Brazilian
+    Portuguese, 'a' = American English) once, keeping one instance per language."""
     if lang_code not in _kokoro_pipelines:
         from kokoro import KPipeline
 
@@ -65,22 +65,22 @@ class TTSRequest(BaseModel):
 def tts(req: TTSRequest):
     text = (req.text or "").strip()
     if not text:
-        raise HTTPException(400, "Texto vazio.")
+        raise HTTPException(400, "Empty text.")
     is_en = req.lang == "en"
     lang_code = "a" if is_en else "p"
     voice = req.voice or (DEFAULT_VOICE_EN if is_en else DEFAULT_VOICE_PT)
 
     try:
-        # o pipeline do Kokoro não é seguro para chamadas concorrentes (ex.: dois
-        # cliques rápidos em "ouvir de novo") — serializa com um lock.
+        # Kokoro's pipeline isn't safe for concurrent calls (e.g. two quick
+        # clicks on "play again") — serialize with a lock.
         with _kokoro_lock:
             pipeline = get_kokoro_pipeline(lang_code)
             chunks = [audio for _graphemes, _phonemes, audio in pipeline(text, voice=voice)]
-    except Exception as exc:  # pragma: no cover - erro de infraestrutura local
-        raise HTTPException(500, f"Falha ao gerar voz com Kokoro: {exc}") from exc
+    except Exception as exc:  # pragma: no cover - local infra failure
+        raise HTTPException(500, f"Failed to generate voice with Kokoro: {exc}") from exc
 
     if not chunks:
-        raise HTTPException(500, "Kokoro não gerou áudio para este texto.")
+        raise HTTPException(500, "Kokoro didn't generate audio for this text.")
 
     audio = np.concatenate(chunks)
     buf = io.BytesIO()
@@ -106,14 +106,32 @@ def get_whisper_model():
     return _whisper_model
 
 
+EXTRACT_ERRORS = {
+    "empty_file": {"pt": "Arquivo vazio.", "en": "Empty file."},
+    "unsupported_format": {
+        "pt": "Formato '{suffix}' não suportado. Envie PDF, DOCX ou TXT.",
+        "en": "Format '{suffix}' not supported. Upload PDF, DOCX, or TXT.",
+    },
+    "extract_failed": {
+        "pt": "Falha ao extrair texto do arquivo: {exc}",
+        "en": "Failed to extract text from the file: {exc}",
+    },
+    "empty_text": {
+        "pt": "Não consegui extrair texto deste arquivo — ele pode ser um PDF escaneado (imagem). Cole o currículo manualmente.",
+        "en": "Couldn't extract text from this file — it might be a scanned (image-only) PDF. Paste the résumé manually.",
+    },
+}
+
+
 @app.post("/api/extract-resume")
-async def extract_resume(file: UploadFile = File(...)):
-    """Extrai o texto de um currículo enviado em PDF, DOCX ou TXT."""
-    name = file.filename or "curriculo"
+async def extract_resume(file: UploadFile = File(...), lang: str = Form("pt")):
+    """Extracts the text from a résumé uploaded as PDF, DOCX, or TXT."""
+    ui_lang = "en" if lang == "en" else "pt"
+    name = file.filename or "resume"
     suffix = Path(name).suffix.lower()
     data = await file.read()
     if not data:
-        raise HTTPException(400, "Arquivo vazio.")
+        raise HTTPException(400, EXTRACT_ERRORS["empty_file"][ui_lang])
 
     try:
         if suffix == ".pdf":
@@ -129,15 +147,15 @@ async def extract_resume(file: UploadFile = File(...)):
         elif suffix in (".txt", ".md", ""):
             text = data.decode("utf-8", errors="ignore")
         else:
-            raise HTTPException(415, f"Formato '{suffix}' não suportado. Envie PDF, DOCX ou TXT.")
+            raise HTTPException(415, EXTRACT_ERRORS["unsupported_format"][ui_lang].format(suffix=suffix))
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(500, f"Falha ao extrair texto do arquivo: {exc}") from exc
+        raise HTTPException(500, EXTRACT_ERRORS["extract_failed"][ui_lang].format(exc=exc)) from exc
 
     text = text.strip()
     if not text:
-        raise HTTPException(422, "Não consegui extrair texto deste arquivo — ele pode ser um PDF escaneado (imagem). Cole o currículo manualmente.")
+        raise HTTPException(422, EXTRACT_ERRORS["empty_text"][ui_lang])
 
     return {"text": text, "filename": name}
 
@@ -147,7 +165,7 @@ async def stt(audio: UploadFile = File(...), language: str = Form("pt")):
     suffix = Path(audio.filename or "audio.webm").suffix or ".webm"
     data = await audio.read()
     if not data:
-        raise HTTPException(400, "Áudio vazio.")
+        raise HTTPException(400, "Empty audio.")
     whisper_lang = "en" if language == "en" else "pt"
 
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
@@ -160,7 +178,7 @@ async def stt(audio: UploadFile = File(...), language: str = Form("pt")):
             segments, _info = model.transcribe(tmp_path, language=whisper_lang, beam_size=5)
             text = " ".join(seg.text.strip() for seg in segments).strip()
     except Exception as exc:  # pragma: no cover
-        raise HTTPException(500, f"Falha ao transcrever com Whisper: {exc}") from exc
+        raise HTTPException(500, f"Failed to transcribe with Whisper: {exc}") from exc
     finally:
         os.unlink(tmp_path)
 
@@ -168,7 +186,7 @@ async def stt(audio: UploadFile = File(...), language: str = Form("pt")):
 
 
 # ============================================================
-# Geração de perguntas STAR e relatório final (Claude API, com fallback local)
+# STAR question generation and final report (Claude API, with local fallback)
 # ============================================================
 
 SKILLS = {
@@ -217,46 +235,46 @@ def local_questions(resume: str, role: str, jd: str = "", lang: str = "pt") -> L
             {"theme": "Trabalho em equipe", "question": "Descreva uma entrega que dependeu fortemente de outras pessoas ou áreas. Qual era o objetivo comum, seu papel específico, o que você fez para alinhar todo mundo e o resultado alcançado?"},
         ]
 
-    # prioriza, no fallback local, os temas onde o histórico do candidato mostra mais lacunas de STAR
+    # In the local fallback, prioritize the themes where the candidate's history shows the most STAR gaps.
     weak_names = {w["theme"] for w in ml.weak_theme_profile(limit=3)}
     if weak_names:
         questions.sort(key=lambda q: 0 if q["theme"] in weak_names else 1)
     return questions
 
 
-# Chaves internas (situação/tarefa/ação/resultado) são fixas independente do idioma —
-# só a lista de palavras-chave usada pra detectar cada uma muda.
+# Internal keys (situation/task/action/result) are fixed regardless of
+# language — only the keyword list used to detect each one changes.
 STAR_HINTS = {
     "pt": {
-        "situação": ["quando", "na época", "situação", "cenário", "empresa", "projeto", "time"],
-        "tarefa": ["responsável", "minha tarefa", "precisava", "objetivo", "meta"],
-        "ação": ["eu fiz", "decidi", "implementei", "propus", "organizei", "conversei", "criei", "liderei"],
-        "resultado": ["resultado", "consegui", "reduziu", "aumentou", "%", "impacto", "economizou", "melhorou"],
+        "situation": ["quando", "na época", "situação", "cenário", "empresa", "projeto", "time"],
+        "task": ["responsável", "minha tarefa", "precisava", "objetivo", "meta"],
+        "action": ["eu fiz", "decidi", "implementei", "propus", "organizei", "conversei", "criei", "liderei"],
+        "result": ["resultado", "consegui", "reduziu", "aumentou", "%", "impacto", "economizou", "melhorou"],
     },
     "en": {
-        "situação": ["when", "at the time", "situation", "context", "company", "project", "team"],
-        "tarefa": ["responsible", "my task", "i needed to", "goal", "objective"],
-        "ação": ["i did", "i decided", "i implemented", "i proposed", "i organized", "i talked", "i created", "i led"],
-        "resultado": ["result", "achieved", "reduced", "increased", "%", "impact", "saved", "improved"],
+        "situation": ["when", "at the time", "situation", "context", "company", "project", "team"],
+        "task": ["responsible", "my task", "i needed to", "goal", "objective"],
+        "action": ["i did", "i decided", "i implemented", "i proposed", "i organized", "i talked", "i created", "i led"],
+        "result": ["result", "achieved", "reduced", "increased", "%", "impact", "saved", "improved"],
     },
 }
 
 STAR_LABELS = {
-    "pt": {"situação": "Situação", "tarefa": "Tarefa", "ação": "Ação", "resultado": "Resultado"},
-    "en": {"situação": "Situation", "tarefa": "Task", "ação": "Action", "resultado": "Result"},
+    "pt": {"situation": "Situação", "task": "Tarefa", "action": "Ação", "result": "Resultado"},
+    "en": {"situation": "Situation", "task": "Task", "action": "Action", "result": "Result"},
 }
 
 
 def star_coverage(answer: str, lang: str = "pt") -> List[str]:
-    """Heurística de palavras-chave — o 'professor' que rotula os dados de treino do modelo em ml.py."""
+    """Keyword heuristic — the 'teacher' that labels the training data for the model in ml.py."""
     hints = STAR_HINTS.get(lang, STAR_HINTS["pt"])
     lower = (answer or "").lower()
     return [key for key, words in hints.items() if any(w in lower for w in words)]
 
 
 def coverage_for(answer: str, lang: str = "pt") -> List[str]:
-    """Cobertura STAR de uma resposta: usa o modelo treinado (ml.py) quando disponível,
-    senão cai na heurística de palavras-chave."""
+    """STAR coverage for an answer: uses the trained model (ml.py) when available,
+    otherwise falls back to the keyword heuristic."""
     predicted = ml.predict_coverage(answer)
     return predicted if predicted is not None else star_coverage(answer, lang)
 
@@ -343,7 +361,7 @@ def extract_json(text: str):
             return json.loads(text[start:end + 1])
         except ValueError:
             pass
-    raise ValueError("Resposta do Claude não contém JSON válido.")
+    raise ValueError("Claude's response doesn't contain valid JSON.")
 
 
 class TutorFeedbackRequest(BaseModel):
@@ -397,14 +415,14 @@ def tutor_feedback(req: TutorFeedbackRequest):
         )
         text = "".join(block.text for block in msg.content if block.type == "text").strip()
         if not text:
-            raise ValueError("Resposta vazia.")
+            raise ValueError("Empty response.")
         return {"feedback": text, "source": "claude"}
     except Exception:
         return {"feedback": local_tutor_feedback(answer, lang), "source": "local"}
 
 
 def weak_theme_hint(lang: str = "pt") -> str:
-    """Trecho de prompt com os temas onde o histórico do candidato mostra mais lacunas de STAR."""
+    """Prompt snippet with the themes where the candidate's history shows the most STAR gaps."""
     weak = ml.weak_theme_profile(limit=2)
     if not weak:
         return ""
@@ -499,7 +517,7 @@ def questions(req: QuestionsRequest):
             if q.get("question")
         ]
         if not cleaned:
-            raise ValueError("Nenhuma pergunta válida retornada.")
+            raise ValueError("No valid questions returned.")
         return {"questions": cleaned, "source": "claude"}
     except Exception:
         return {"questions": local_questions(resume, req.role or "", jd, lang), "source": "local"}
@@ -574,14 +592,14 @@ def report(req: ReportRequest):
         )
         text = "".join(block.text for block in msg.content if block.type == "text").strip()
         if not text:
-            raise ValueError("Resposta vazia.")
+            raise ValueError("Empty response.")
         return {"report": text, "source": "claude"}
     except Exception:
         return {"report": local_report(transcripts, lang), "source": "local"}
 
 
 # ============================================================
-# Histórico local (SQLite) e modelo preditivo (ml.py)
+# Local history (SQLite) and predictive model (ml.py)
 # ============================================================
 
 class SessionSaveRequest(BaseModel):
@@ -627,7 +645,7 @@ def insights():
 
 
 # ============================================================
-# Frontend estático
+# Static frontend
 # ============================================================
 
 app.mount("/assets", StaticFiles(directory=FRONTEND_DIR), name="assets")
