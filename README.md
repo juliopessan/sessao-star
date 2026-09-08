@@ -8,7 +8,7 @@ Everyone who has ever gone through a hiring process has heard the advice: "pract
 
 The usual alternatives run into another problem too: generic question banks don't know you led a team of four people at Norteluz Logistics, and real AI voice tools usually mean sending your résumé and your voice to some paid cloud API, session after session.
 
-STAR Session was built to solve both at once: questions that cross-reference *your* résumé with *this* job's JD, and a real spoken interview — Kokoro TTS voicing the recruiter, Whisper transcribing your answer — running entirely on your own computer, with no per-minute cost and no voice data leaving the machine.
+STAR Session was built to solve both at once: questions that cross-reference *your* résumé with *this* job's JD, and a real spoken interview — Kokoro TTS voicing the recruiter, Whisper transcribing your answer — running entirely on your own computer, with no per-minute cost and no voice data leaving the machine. The public landing page is the front door; after authentication, each candidate gets a private practice workspace.
 
 ## What it does
 
@@ -31,6 +31,7 @@ browser  <-- plain HTML/CSS/JS, no build step
     v
 FastAPI (backend/main.py)
     |-- /api/extract-resume  -> pypdf / python-docx
+    |-- /api/auth/*         -> SQLite users + expiring httpOnly cookie
     |-- /api/questions       -> Claude API (fallback: local heuristic)
     |-- /api/tts             -> Kokoro TTS   (lock: 1 call at a time)
     |-- /api/stt             -> Whisper      (lock: 1 call at a time)
@@ -42,6 +43,8 @@ FastAPI (backend/main.py)
 ```
 
 Everything goes through the backend, including voice generation and transcription — not because the browser can't record audio, but because Kokoro and Whisper are real Python models with weights well over 100 MB, and there's no version of them running purely in browser JavaScript. The Claude API key follows the same logic as always: it never leaves the server.
+
+**The entry flow.** `/` is a persuasive public landing page, `/login` handles sign-in and account creation, and `/app` serves the existing interview workspace only after a valid session cookie is present. Passwords are stored as scrypt-derived hashes; the cookie contains an opaque token whose hash is stored in SQLite and expires after 30 days. Existing local interview history is claimed by the first account created, so the gold test and legacy sessions remain available on a single-user installation while new sessions are scoped to the authenticated account.
 
 **History and predictive model.** Every finished session — résumé, JD, questions, answers, report — is saved to SQLite (`backend/db.py`). A keyword list decides, answer by answer, which of the four STAR elements seem covered: it's the "teacher" that labels the data. With fewer than 20 real answers in the history, that heuristic is the only voice that speaks. From the twentieth answer on, `ml.py` trains a text classifier (TF-IDF + logistic regression, one per STAR element) over everything answered so far. Portuguese and English have separate datasets and model artifacts, so one language cannot contaminate the other. It retrains on every saved session, and the theme where your historical coverage is lowest goes straight into the prompt for the next round of question generation.
 
@@ -104,19 +107,23 @@ microphone permission).
 | `WHISPER_MODEL` | `small` | Whisper model size (`tiny`, `base`, `small`, `medium`, `large-v3`). Larger models are more accurate and slower. |
 | `KOKORO_VOICE` | `pm_alex` | Kokoro voice for the recruiter in Portuguese. pt-BR voices: `pf_dora` (female), `pm_alex`, `pm_santa` (male). |
 | `KOKORO_VOICE_EN` | `af_heart` | Kokoro voice for the recruiter in English (when 🇺🇸 is selected). English voices: `af_heart`, `af_bella` (female), `am_adam`, `am_michael` (male). |
+| `AUTH_COOKIE_SECURE` | `0` | Set to `1` when serving behind HTTPS so the authentication cookie is marked Secure. |
 
 ## Project structure
 
 ```
 backend/
   main.py            FastAPI: every endpoint, plus serving the static frontend.
+  auth.py            Password hashing, account creation, and expiring sessions.
   db.py              SQLite persistence (backend/data/star_session.db, outside git).
   ml.py              Language-specific predictive models (scikit-learn) for STAR coverage.
   tests/             Automated tests for persistence, migrations, API fallbacks, follow-ups, and ML isolation.
   requirements.txt
   .env.example
 frontend/
-  index.html         Single-page UI (plain HTML/CSS/JS, no build step).
+  landing.html       Public persuasive landing page.
+  login.html         Bilingual sign-in and account creation screen.
+  index.html         Authenticated interview workspace (plain HTML/CSS/JS, no build step).
 docs/
   screenshot.png     Screenshot used in this README.
 ```
@@ -135,11 +142,12 @@ pytest -q -p no:cacheprovider backend/tests
 
 The suite deliberately avoids loading the heavy Kokoro and Whisper weights. It covers the
 language-aware SQLite schema and legacy migration, separate PT/EN ML artifacts, bilingual local
-fallbacks, adaptive follow-up decisions, and the insights payload used by the visual history.
+fallbacks, adaptive follow-up decisions, the insights payload used by the visual history, and
+registration/login/logout protection for the workspace.
 
 **Privacy:** `backend/data/` (SQLite database + trained model) and `backend/.env` (your API key)
-stay out of git — the former holds résumé excerpts and the answers you speak during your practice
-interviews.
+stay out of git — the former holds account hashes, expiring session records, résumé excerpts and
+the answers you speak during your practice interviews.
 
 ## Common issues
 

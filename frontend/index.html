@@ -76,6 +76,9 @@
   .langswitch button:last-child{border-right:none;}
   .langswitch button.active{filter:none;opacity:1;background:var(--panel-2);}
   .langswitch button:hover{filter:none;opacity:1;}
+  .auth-user{display:flex;align-items:center;gap:10px;color:var(--text-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase;}
+  .auth-user button{border:1px solid var(--line);background:transparent;color:var(--text-dim);padding:7px 10px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;}
+  .auth-user button:hover{border-color:var(--text);color:var(--text);}
 
   .hero{padding:76px 0 56px;border-bottom:1px solid var(--line);}
   .eyebrow{
@@ -243,6 +246,7 @@
       <button id="nav-interview" disabled data-i18n="nav.interview">Sessão</button>
       <button id="nav-summary" disabled data-i18n="nav.summary">Relatório</button>
     </div>
+    <div class="auth-user"><span id="user-name"></span><button id="btn-logout" type="button" data-i18n="auth.logout">Sair</button></div>
     <div class="langswitch" id="langswitch">
       <button type="button" data-lang="pt" class="active" title="Português" aria-label="Português">🇧🇷</button>
       <button type="button" data-lang="en" title="English" aria-label="English">🇺🇸</button>
@@ -416,6 +420,7 @@
   var I18N = {
     pt: {
       "brand": "SESSÃO STAR",
+      "auth.logout": "Sair",
       "nav.setup": "Dossiê", "nav.interview": "Sessão", "nav.summary": "Relatório",
       "hero.eyebrow": "SIMULADOR LOCAL · KOKORO + WHISPER",
       "hero.headline": "Treine sua próxima entrevista, em voz alta.",
@@ -525,6 +530,7 @@
     },
     en: {
       "brand": "STAR SESSION",
+      "auth.logout": "Sign out",
       "nav.setup": "Dossier", "nav.interview": "Session", "nav.summary": "Report",
       "hero.eyebrow": "LOCAL SIMULATOR · KOKORO + WHISPER",
       "hero.headline": "Practice your next interview, out loud.",
@@ -763,6 +769,21 @@
   };
 
   function $(id){ return document.getElementById(id); }
+
+  fetch("/api/auth/me", {credentials:"same-origin"}).then(function(r){
+    if (!r.ok) throw new Error("not authenticated");
+    return r.json();
+  }).then(function(data){
+    $("user-name").textContent = data.user.name;
+  }).catch(function(){
+    window.location.href = "/login?next=/app";
+  });
+
+  $("btn-logout").addEventListener("click", function(){
+    fetch("/api/auth/logout", {method:"POST", credentials:"same-origin"}).finally(function(){
+      window.location.href = "/";
+    });
+  });
 
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, function(c){

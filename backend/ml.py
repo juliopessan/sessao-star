@@ -37,37 +37,43 @@ def _normalise_lang(lang: str) -> str:
     return "en" if lang == "en" else "pt"
 
 
-def model_path(lang: str) -> Path:
-    return MODEL_DIR / f"star_model_{_normalise_lang(lang)}.joblib"
+def _model_key(lang: str, user_id: Optional[int] = None) -> tuple:
+    return _normalise_lang(lang), user_id
 
 
-def _load_model(lang: str = "pt"):
-    lang = _normalise_lang(lang)
-    if lang not in _model_loaded:
-        _model_loaded.add(lang)
-        path = model_path(lang)
+def model_path(lang: str, user_id: Optional[int] = None) -> Path:
+    suffix = "" if user_id is None else f"_u{int(user_id)}"
+    return MODEL_DIR / f"star_model_{_normalise_lang(lang)}{suffix}.joblib"
+
+
+def _load_model(lang: str = "pt", user_id: Optional[int] = None):
+    key = _model_key(lang, user_id)
+    if key not in _model_loaded:
+        _model_loaded.add(key)
+        path = model_path(lang, user_id)
         if path.exists():
             try:
-                _model_cache[lang] = joblib.load(path)
+                _model_cache[key] = joblib.load(path)
             except Exception:
-                _model_cache[lang] = None
-    return _model_cache.get(lang)
+                _model_cache[key] = None
+    return _model_cache.get(key)
 
 
-def model_status(lang: str = "pt") -> dict:
+def model_status(lang: str = "pt", user_id: Optional[int] = None) -> dict:
     lang = _normalise_lang(lang)
     return {
         "language": lang,
-        "trained": _load_model(lang) is not None,
-        "answers_available": db.answer_count(lang),
+        "user_id": user_id,
+        "trained": _load_model(lang, user_id) is not None,
+        "answers_available": db.answer_count(lang, user_id=user_id),
         "min_samples_to_train": MIN_SAMPLES_TO_TRAIN,
     }
 
 
-def train(lang: str = "pt") -> Optional[dict]:
+def train(lang: str = "pt", user_id: Optional[int] = None) -> Optional[dict]:
     """Retrains the model with everything already in the database. Called after every saved session."""
     lang = _normalise_lang(lang)
-    rows = db.all_answers(lang)
+    rows = db.all_answers(lang, user_id=user_id)
     if len(rows) < MIN_SAMPLES_TO_TRAIN:
         return None
 
@@ -94,28 +100,37 @@ def train(lang: str = "pt") -> Optional[dict]:
         classifiers[label] = clf
 
     bundle = {"classifiers": classifiers, "n_samples": len(rows)}
-    model_path(lang).parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(bundle, model_path(lang))
+    model_path(lang, user_id).parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(bundle, model_path(lang, user_id))
 
-    _model_cache[lang] = bundle
-    _model_loaded.add(lang)
+    key = _model_key(lang, user_id)
+    _model_cache[key] = bundle
+    _model_loaded.add(key)
     return bundle
 
 
-def predict_coverage(answer: str, lang: str = "pt") -> Optional[List[str]]:
+def predict_coverage(
+    answer: str,
+    lang: str = "pt",
+    user_id: Optional[int] = None,
+) -> Optional[List[str]]:
     """STAR elements the trained model predicts this answer covers.
     Returns None (a signal for the caller to use the heuristic instead) if the
     model hasn't been trained yet or the answer is empty."""
-    model = _load_model(lang)
+    model = _load_model(lang, user_id)
     if model is None or not (answer or "").strip():
         return None
     return [label for label, clf in model["classifiers"].items() if int(clf.predict([answer])[0]) == 1]
 
 
-def weak_theme_profile(limit: int = 3, lang: str = "pt") -> List[dict]:
+def weak_theme_profile(
+    limit: int = 3,
+    lang: str = "pt",
+    user_id: Optional[int] = None,
+) -> List[dict]:
     """Themes (question categories) where the candidate historically covers
     fewer STAR elements, weakest first."""
-    stats = db.theme_stats(lang)
+    stats = db.theme_stats(lang, user_id=user_id)
     scored = []
     for s in stats:
         avg_cov = ((s["situation"] or 0) + (s["task"] or 0) + (s["action"] or 0) + (s["result"] or 0)) / 4.0

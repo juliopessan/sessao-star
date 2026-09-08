@@ -11,13 +11,14 @@ from typing import List, Optional
 import numpy as np
 import soundfile as sf
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import db
 import ml
+import auth
 
 load_dotenv()
 
@@ -37,6 +38,78 @@ ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
 DEFAULT_VOICE_PT = os.getenv("KOKORO_VOICE", "pm_alex")
 DEFAULT_VOICE_EN = os.getenv("KOKORO_VOICE_EN", "af_heart")
 WHISPER_SIZE = os.getenv("WHISPER_MODEL", "small")
+AUTH_COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "0") == "1"
+
+
+def current_user(request: Request):
+    return auth.user_from_token(request.cookies.get(auth.SESSION_COOKIE))
+
+
+def require_user(request: Request):
+    user = current_user(request)
+    if user is None:
+        raise HTTPException(401, "Authentication required.")
+    return user
+
+
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+def set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=auth.SESSION_COOKIE,
+        value=token,
+        max_age=auth.SESSION_TTL_SECONDS,
+        httponly=True,
+        secure=AUTH_COOKIE_SECURE,
+        samesite="lax",
+        path="/",
+    )
+
+
+@app.post("/api/auth/register")
+def register(req: RegisterRequest, response: Response):
+    try:
+        user = auth.create_user(req.name, req.email, req.password)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    auth.claim_legacy_sessions(user["id"])
+    set_auth_cookie(response, auth.create_session(user["id"]))
+    return {"user": user}
+
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest, response: Response):
+    user = auth.authenticate(req.email, req.password)
+    if user is None:
+        raise HTTPException(401, "Invalid email or password.")
+    auth.claim_legacy_sessions(user["id"])
+    set_auth_cookie(response, auth.create_session(user["id"]))
+    return {"user": user}
+
+
+@app.get("/api/auth/me")
+def me(request: Request):
+    user = current_user(request)
+    if user is None:
+        raise HTTPException(401, "Authentication required.")
+    return {"user": user}
+
+
+@app.post("/api/auth/logout")
+def logout(request: Request, response: Response):
+    raw_token = request.cookies.get(auth.SESSION_COOKIE)
+    auth.revoke_session(raw_token)
+    response.delete_cookie(auth.SESSION_COOKIE, path="/")
+    return {"ok": True}
 
 
 # ============================================================
@@ -64,7 +137,7 @@ class TTSRequest(BaseModel):
 
 
 @app.post("/api/tts")
-def tts(req: TTSRequest):
+def tts(req: TTSRequest, _user=Depends(require_user)):
     text = (req.text or "").strip()
     if not text:
         raise HTTPException(400, "Empty text.")
@@ -126,7 +199,7 @@ EXTRACT_ERRORS = {
 
 
 @app.post("/api/extract-resume")
-async def extract_resume(file: UploadFile = File(...), lang: str = Form("pt")):
+async def extract_resume(file: UploadFile = File(...), lang: str = Form("pt"), _user=Depends(require_user)):
     """Extracts the text from a résumé uploaded as PDF, DOCX, or TXT."""
     ui_lang = "en" if lang == "en" else "pt"
     name = file.filename or "resume"
@@ -163,7 +236,7 @@ async def extract_resume(file: UploadFile = File(...), lang: str = Form("pt")):
 
 
 @app.post("/api/stt")
-async def stt(audio: UploadFile = File(...), language: str = Form("pt")):
+async def stt(audio: UploadFile = File(...), language: str = Form("pt"), _user=Depends(require_user)):
     suffix = Path(audio.filename or "audio.webm").suffix or ".webm"
     data = await audio.read()
     if not data:
@@ -213,7 +286,13 @@ def detect_area(text: str, lang: str = "pt") -> str:
     return "sua área" if lang == "pt" else "your field"
 
 
-def local_questions(resume: str, role: str, jd: str = "", lang: str = "pt") -> List[dict]:
+def local_questions(
+    resume: str,
+    role: str,
+    jd: str = "",
+    lang: str = "pt",
+    user_id: Optional[int] = None,
+) -> List[dict]:
     area = detect_area(f"{resume}\n{jd}", lang)
 
     if lang == "en":
@@ -238,7 +317,7 @@ def local_questions(resume: str, role: str, jd: str = "", lang: str = "pt") -> L
         ]
 
     # In the local fallback, prioritize the themes where the candidate's history shows the most STAR gaps.
-    weak_names = {w["theme"] for w in ml.weak_theme_profile(limit=3, lang=lang)}
+    weak_names = {w["theme"] for w in ml.weak_theme_profile(limit=3, lang=lang, user_id=user_id)}
     if weak_names:
         questions.sort(key=lambda q: 0 if q["theme"] in weak_names else 1)
     return questions
@@ -274,20 +353,20 @@ def star_coverage(answer: str, lang: str = "pt") -> List[str]:
     return [key for key, words in hints.items() if any(w in lower for w in words)]
 
 
-def coverage_for(answer: str, lang: str = "pt") -> List[str]:
+def coverage_for(answer: str, lang: str = "pt", user_id: Optional[int] = None) -> List[str]:
     """STAR coverage for an answer: uses the trained model (ml.py) when available,
     otherwise falls back to the keyword heuristic."""
-    predicted = ml.predict_coverage(answer, lang)
+    predicted = ml.predict_coverage(answer, lang, user_id=user_id)
     return predicted if predicted is not None else star_coverage(answer, lang)
 
 
-def local_report(transcripts: List[dict], lang: str = "pt") -> str:
+def local_report(transcripts: List[dict], lang: str = "pt", user_id: Optional[int] = None) -> str:
     labels = STAR_LABELS.get(lang, STAR_LABELS["pt"])
     answered = [t for t in transcripts if not t.get("skipped") and t.get("answer")]
     if lang == "en":
         lines = [f"Answers recorded: {len(answered)} of {len(transcripts)}.", ""]
         for i, t in enumerate(answered, start=1):
-            covered = coverage_for(t["answer"], lang)
+            covered = coverage_for(t["answer"], lang, user_id=user_id)
             words = len(t["answer"].split())
             cov_text = ", ".join(labels[k] for k in covered) if covered else "no clear STAR signal"
             lines.append(f"{i}. [{t['theme']}] {words} words — covered: {cov_text}")
@@ -296,7 +375,7 @@ def local_report(transcripts: List[dict], lang: str = "pt") -> str:
     else:
         lines = [f"Respostas registradas: {len(answered)} de {len(transcripts)}.", ""]
         for i, t in enumerate(answered, start=1):
-            covered = coverage_for(t["answer"], lang)
+            covered = coverage_for(t["answer"], lang, user_id=user_id)
             words = len(t["answer"].split())
             cov_text = ", ".join(labels[k] for k in covered) if covered else "nenhum sinal claro de STAR"
             lines.append(f"{i}. [{t['theme']}] {words} palavras — cobriu: {cov_text}")
@@ -305,9 +384,9 @@ def local_report(transcripts: List[dict], lang: str = "pt") -> str:
     return "\n".join(lines)
 
 
-def local_tutor_feedback(answer: str, lang: str = "pt") -> str:
+def local_tutor_feedback(answer: str, lang: str = "pt", user_id: Optional[int] = None) -> str:
     labels = STAR_LABELS.get(lang, STAR_LABELS["pt"])
-    covered = coverage_for(answer, lang)
+    covered = coverage_for(answer, lang, user_id=user_id)
     missing = [labels[k] for k in labels if k not in covered]
     words = len(answer.split())
 
@@ -373,7 +452,7 @@ class TutorFeedbackRequest(BaseModel):
 
 
 @app.post("/api/tutor-feedback")
-def tutor_feedback(req: TutorFeedbackRequest):
+def tutor_feedback(req: TutorFeedbackRequest, user=Depends(require_user)):
     answer = (req.answer or "").strip()
     lang = "en" if req.lang == "en" else "pt"
     if not answer:
@@ -386,7 +465,7 @@ def tutor_feedback(req: TutorFeedbackRequest):
 
     client = get_anthropic_client()
     if client is None:
-        return {"feedback": local_tutor_feedback(answer, lang), "source": "local"}
+        return {"feedback": local_tutor_feedback(answer, lang, user_id=user["id"]), "source": "local"}
 
     if lang == "en":
         prompt = (
@@ -420,7 +499,7 @@ def tutor_feedback(req: TutorFeedbackRequest):
             raise ValueError("Empty response.")
         return {"feedback": text, "source": "claude"}
     except Exception:
-        return {"feedback": local_tutor_feedback(answer, lang), "source": "local"}
+        return {"feedback": local_tutor_feedback(answer, lang, user_id=user["id"]), "source": "local"}
 
 
 FOLLOW_UP_QUESTIONS = {
@@ -447,10 +526,10 @@ class FollowUpRequest(BaseModel):
 
 
 @app.post("/api/follow-up")
-def follow_up(req: FollowUpRequest):
+def follow_up(req: FollowUpRequest, user=Depends(require_user)):
     answer = (req.answer or "").strip()
     lang = "en" if req.lang == "en" else "pt"
-    covered = coverage_for(answer, lang)
+    covered = coverage_for(answer, lang, user_id=user["id"])
     missing = [label for label in ("situation", "task", "action", "result") if label not in covered]
     should_follow_up = bool(answer) and (len(covered) < 3 or len(answer.split()) < 20)
     if not should_follow_up:
@@ -490,9 +569,9 @@ def follow_up(req: FollowUpRequest):
     except Exception:
         return {"should_follow_up": True, "question": fallback, "missing": missing, "source": "local"}
 
-def weak_theme_hint(lang: str = "pt") -> str:
+def weak_theme_hint(lang: str = "pt", user_id: Optional[int] = None) -> str:
     """Prompt snippet with the themes where the candidate's history shows the most STAR gaps."""
-    weak = ml.weak_theme_profile(limit=2, lang=lang)
+    weak = ml.weak_theme_profile(limit=2, lang=lang, user_id=user_id)
     if not weak:
         return ""
     names = ", ".join(w["theme"] for w in weak)
@@ -518,7 +597,7 @@ class QuestionsRequest(BaseModel):
 
 
 @app.post("/api/questions")
-def questions(req: QuestionsRequest):
+def questions(req: QuestionsRequest, user=Depends(require_user)):
     resume = (req.resume or "").strip()
     jd = (req.jd or "").strip()
     lang = "en" if req.lang == "en" else "pt"
@@ -527,7 +606,7 @@ def questions(req: QuestionsRequest):
 
     client = get_anthropic_client()
     if client is None:
-        return {"questions": local_questions(resume, req.role or "", jd, lang), "source": "local"}
+        return {"questions": local_questions(resume, req.role or "", jd, lang, user_id=user["id"]), "source": "local"}
 
     if lang == "en":
         prompt = (
@@ -547,7 +626,7 @@ def questions(req: QuestionsRequest):
             + (f"JOB DESCRIPTION (JD):\n{jd[:4000]}\n\n" if jd else "")
             + (f"JOB TITLE: {req.role}\n\n" if req.role else "")
             + (f"LINKEDIN URL (context only, ignore if not helpful): {req.linkedin}\n\n" if req.linkedin else "")
-            + weak_theme_hint(lang)
+            + weak_theme_hint(lang, user_id=user["id"])
         )
     else:
         prompt = (
@@ -568,7 +647,7 @@ def questions(req: QuestionsRequest):
             + (f"DESCRIÇÃO DA VAGA (JD):\n{jd[:4000]}\n\n" if jd else "")
             + (f"TÍTULO DA VAGA: {req.role}\n\n" if req.role else "")
             + (f"URL DO LINKEDIN (apenas contexto, ignore se não ajudar): {req.linkedin}\n\n" if req.linkedin else "")
-            + weak_theme_hint(lang)
+            + weak_theme_hint(lang, user_id=user["id"])
         )
 
     try:
@@ -589,7 +668,7 @@ def questions(req: QuestionsRequest):
             raise ValueError("No valid questions returned.")
         return {"questions": cleaned, "source": "claude"}
     except Exception:
-        return {"questions": local_questions(resume, req.role or "", jd, lang), "source": "local"}
+        return {"questions": local_questions(resume, req.role or "", jd, lang, user_id=user["id"]), "source": "local"}
 
 
 class ReportRequest(BaseModel):
@@ -599,7 +678,7 @@ class ReportRequest(BaseModel):
 
 
 @app.post("/api/report")
-def report(req: ReportRequest):
+def report(req: ReportRequest, user=Depends(require_user)):
     transcripts = req.transcripts or []
     jd = (req.jd or "").strip()
     lang = "en" if req.lang == "en" else "pt"
@@ -610,7 +689,7 @@ def report(req: ReportRequest):
 
     client = get_anthropic_client()
     if client is None:
-        return {"report": local_report(transcripts, lang), "source": "local"}
+        return {"report": local_report(transcripts, lang, user_id=user["id"]), "source": "local"}
 
     if lang == "en":
         transcript_text = "\n\n".join(
@@ -664,7 +743,7 @@ def report(req: ReportRequest):
             raise ValueError("Empty response.")
         return {"report": text, "source": "claude"}
     except Exception:
-        return {"report": local_report(transcripts, lang), "source": "local"}
+        return {"report": local_report(transcripts, lang, user_id=user["id"]), "source": "local"}
 
 
 # ============================================================
@@ -683,7 +762,7 @@ class SessionSaveRequest(BaseModel):
 
 
 @app.post("/api/session/save")
-def session_save(req: SessionSaveRequest):
+def session_save(req: SessionSaveRequest, user=Depends(require_user)):
     lang = "en" if req.lang == "en" else "pt"
     session_id = db.save_session(
         role=(req.role or "").strip(),
@@ -695,25 +774,26 @@ def session_save(req: SessionSaveRequest):
         transcripts=req.transcripts or [],
         coverage_fn=lambda a: star_coverage(a, lang),
         lang=lang,
+        user_id=user["id"],
     )
-    model = ml.train(lang)
+    model = ml.train(lang, user_id=user["id"])
     return {
         "session_id": session_id,
-        "sessions_total": db.session_count(lang),
-        "model_trained": model is not None or ml.model_status(lang)["trained"],
+        "sessions_total": db.session_count(lang, user_id=user["id"]),
+        "model_trained": model is not None or ml.model_status(lang, user_id=user["id"])["trained"],
     }
 
 
 @app.get("/api/insights")
-def insights(lang: str = "pt"):
+def insights(lang: str = "pt", user=Depends(require_user)):
     ui_lang = "en" if lang == "en" else "pt"
     return {
-        "sessions_total": db.session_count(ui_lang),
-        "answers_total": db.answer_count(ui_lang),
-        "weak_themes": ml.weak_theme_profile(lang=ui_lang),
-        "model": ml.model_status(ui_lang),
-        "coverage": db.coverage_summary(ui_lang),
-        "timeline": db.history(lang=ui_lang),
+        "sessions_total": db.session_count(ui_lang, user_id=user["id"]),
+        "answers_total": db.answer_count(ui_lang, user_id=user["id"]),
+        "weak_themes": ml.weak_theme_profile(lang=ui_lang, user_id=user["id"]),
+        "model": ml.model_status(ui_lang, user_id=user["id"]),
+        "coverage": db.coverage_summary(ui_lang, user_id=user["id"]),
+        "timeline": db.history(lang=ui_lang, user_id=user["id"]),
     }
 
 
@@ -726,6 +806,18 @@ app.mount("/assets", StaticFiles(directory=FRONTEND_DIR), name="assets")
 
 @app.get("/")
 def index():
+    return FileResponse(FRONTEND_DIR / "landing.html")
+
+
+@app.get("/login")
+def login_page():
+    return FileResponse(FRONTEND_DIR / "login.html")
+
+
+@app.get("/app")
+def app_page(request: Request):
+    if current_user(request) is None:
+        return RedirectResponse("/login?next=/app", status_code=303)
     return FileResponse(FRONTEND_DIR / "index.html")
 
 

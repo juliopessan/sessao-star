@@ -26,9 +26,26 @@ def init_db() -> None:
     conn = get_conn()
     conn.executescript(
         """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at REAL NOT NULL,
+            name TEXT NOT NULL DEFAULT '',
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS auth_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token_hash TEXT NOT NULL UNIQUE,
+            created_at REAL NOT NULL,
+            expires_at REAL NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             created_at REAL NOT NULL,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
             lang TEXT NOT NULL DEFAULT 'pt',
             role TEXT NOT NULL DEFAULT '',
             resume_excerpt TEXT NOT NULL DEFAULT '',
@@ -55,10 +72,13 @@ def init_db() -> None:
         );
 
         CREATE INDEX IF NOT EXISTS idx_answers_session ON answers(session_id);
+        CREATE INDEX IF NOT EXISTS idx_auth_sessions_token ON auth_sessions(token_hash);
         """
     )
+    _ensure_column(conn, "sessions", "user_id", "INTEGER")
     _ensure_column(conn, "sessions", "lang", "TEXT NOT NULL DEFAULT 'pt'")
     _ensure_column(conn, "answers", "lang", "TEXT NOT NULL DEFAULT 'pt'")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)")
     conn.commit()
     conn.close()
 
@@ -79,13 +99,14 @@ def save_session(
     transcripts: List[dict],
     coverage_fn: Callable[[str], List[str]],
     lang: str = "pt",
+    user_id: Optional[int] = None,
 ) -> int:
     conn = get_conn()
     cur = conn.execute(
         """INSERT INTO sessions
-           (created_at, lang, role, resume_excerpt, jd_excerpt, questions_source, report_text, report_source)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (time.time(), lang, role, resume_excerpt, jd_excerpt, questions_source, report_text, report_source),
+           (created_at, user_id, lang, role, resume_excerpt, jd_excerpt, questions_source, report_text, report_source)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (time.time(), user_id, lang, role, resume_excerpt, jd_excerpt, questions_source, report_text, report_source),
     )
     session_id = cur.lastrowid
 
@@ -118,20 +139,23 @@ def save_session(
     return session_id
 
 
-def all_answers(lang: Optional[str] = None) -> List[dict]:
+def all_answers(lang: Optional[str] = None, user_id: Optional[int] = None) -> List[dict]:
     """Every real answer recorded so far (not skipped, not empty) — used to train the model."""
     conn = get_conn()
-    query = "SELECT * FROM answers WHERE skipped = 0 AND answer != ''"
+    query = "SELECT a.* FROM answers a JOIN sessions s ON s.id = a.session_id WHERE a.skipped = 0 AND a.answer != ''"
     params = []
     if lang:
-        query += " AND lang = ?"
+        query += " AND a.lang = ?"
         params.append(lang)
+    if user_id is not None:
+        query += " AND s.user_id = ?"
+        params.append(user_id)
     rows = conn.execute(query, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def theme_stats(lang: Optional[str] = None) -> List[dict]:
+def theme_stats(lang: Optional[str] = None, user_id: Optional[int] = None) -> List[dict]:
     conn = get_conn()
     query = """SELECT theme,
                   COUNT(*) AS n,
@@ -140,54 +164,70 @@ def theme_stats(lang: Optional[str] = None) -> List[dict]:
                   AVG(cov_action) AS action,
                   AVG(cov_result) AS result,
                   AVG(word_count) AS avg_words
-           FROM answers
-           WHERE skipped = 0 AND answer != ''
+           FROM answers a
+           JOIN sessions s ON s.id = a.session_id
+           WHERE a.skipped = 0 AND a.answer != ''
     """
     params = []
     if lang:
-        query += " AND lang = ?"
+        query += " AND a.lang = ?"
         params.append(lang)
+    if user_id is not None:
+        query += " AND s.user_id = ?"
+        params.append(user_id)
     query += " GROUP BY theme"
     rows = conn.execute(query, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def session_count(lang: Optional[str] = None) -> int:
+def session_count(lang: Optional[str] = None, user_id: Optional[int] = None) -> int:
     conn = get_conn()
-    if lang:
-        n = conn.execute("SELECT COUNT(*) FROM sessions WHERE lang = ?", (lang,)).fetchone()[0]
-    else:
-        n = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
-    conn.close()
-    return n
-
-
-def answer_count(lang: Optional[str] = None) -> int:
-    conn = get_conn()
-    query = "SELECT COUNT(*) FROM answers WHERE skipped = 0 AND answer != ''"
+    query = "SELECT COUNT(*) FROM sessions WHERE 1 = 1"
     params = []
     if lang:
         query += " AND lang = ?"
         params.append(lang)
+    if user_id is not None:
+        query += " AND user_id = ?"
+        params.append(user_id)
     n = conn.execute(query, params).fetchone()[0]
     conn.close()
     return n
 
 
-def coverage_summary(lang: Optional[str] = None) -> dict:
+def answer_count(lang: Optional[str] = None, user_id: Optional[int] = None) -> int:
+    conn = get_conn()
+    query = "SELECT COUNT(*) FROM answers a JOIN sessions s ON s.id = a.session_id WHERE a.skipped = 0 AND a.answer != ''"
+    params = []
+    if lang:
+        query += " AND a.lang = ?"
+        params.append(lang)
+    if user_id is not None:
+        query += " AND s.user_id = ?"
+        params.append(user_id)
+    n = conn.execute(query, params).fetchone()[0]
+    conn.close()
+    return n
+
+
+def coverage_summary(lang: Optional[str] = None, user_id: Optional[int] = None) -> dict:
     conn = get_conn()
     query = """SELECT COUNT(*) AS n,
                       AVG(cov_situation) AS situation,
                       AVG(cov_task) AS task,
                       AVG(cov_action) AS action,
                       AVG(cov_result) AS result
-               FROM answers
-               WHERE skipped = 0 AND answer != ''"""
+               FROM answers a
+               JOIN sessions s ON s.id = a.session_id
+               WHERE a.skipped = 0 AND a.answer != ''"""
     params = []
     if lang:
-        query += " AND lang = ?"
+        query += " AND a.lang = ?"
         params.append(lang)
+    if user_id is not None:
+        query += " AND s.user_id = ?"
+        params.append(user_id)
     row = conn.execute(query, params).fetchone()
     conn.close()
     return {
@@ -199,7 +239,7 @@ def coverage_summary(lang: Optional[str] = None) -> dict:
     }
 
 
-def history(limit: int = 12, lang: Optional[str] = None) -> List[dict]:
+def history(limit: int = 12, lang: Optional[str] = None, user_id: Optional[int] = None) -> List[dict]:
     conn = get_conn()
     query = """SELECT s.id, s.created_at, s.lang, s.role,
                       COUNT(CASE WHEN a.skipped = 0 AND a.answer != '' THEN 1 END) AS answers,
@@ -213,6 +253,10 @@ def history(limit: int = 12, lang: Optional[str] = None) -> List[dict]:
     if lang:
         query += " WHERE s.lang = ?"
         params.append(lang)
+    if user_id is not None:
+        query += " WHERE " if " WHERE " not in query else " AND "
+        query += "s.user_id = ?"
+        params.append(user_id)
     query += " GROUP BY s.id ORDER BY s.created_at DESC LIMIT ?"
     params.append(max(1, min(int(limit), 50)))
     rows = conn.execute(query, params).fetchall()

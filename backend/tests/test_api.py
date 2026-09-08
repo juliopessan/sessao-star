@@ -4,10 +4,23 @@ import db
 import main
 
 
-def test_follow_up_is_adaptive_and_bilingual(monkeypatch):
-    monkeypatch.setattr(main, "get_anthropic_client", lambda: None)
-    monkeypatch.setattr(main, "coverage_for", lambda answer, lang="pt": main.star_coverage(answer, lang))
+def authenticated_client(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "star_session.db")
+    db.init_db()
     client = TestClient(main.app)
+    response = client.post("/api/auth/register", json={
+        "name": "Test Candidate",
+        "email": "candidate@example.com",
+        "password": "correct-horse",
+    })
+    assert response.status_code == 200
+    return client
+
+
+def test_follow_up_is_adaptive_and_bilingual(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "get_anthropic_client", lambda: None)
+    monkeypatch.setattr(main, "coverage_for", lambda answer, lang="pt", user_id=None: main.star_coverage(answer, lang))
+    client = authenticated_client(tmp_path, monkeypatch)
 
     response = client.post("/api/follow-up", json={
         "question": "Tell me about a challenge.",
@@ -29,7 +42,7 @@ def test_follow_up_is_adaptive_and_bilingual(monkeypatch):
     assert complete.json()["should_follow_up"] is False
 
 
-def test_tutor_returns_claude_feedback_when_client_is_available(monkeypatch):
+def test_tutor_returns_claude_feedback_when_client_is_available(tmp_path, monkeypatch):
     class Block:
         type = "text"
         text = "You covered the situation well. Add a measurable result next time."
@@ -40,7 +53,8 @@ def test_tutor_returns_claude_feedback_when_client_is_available(monkeypatch):
 
     client = type("Client", (), {"messages": Messages()})()
     monkeypatch.setattr(main, "get_anthropic_client", lambda: client)
-    response = TestClient(main.app).post("/api/tutor-feedback", json={
+    test_client = authenticated_client(tmp_path, monkeypatch)
+    response = test_client.post("/api/tutor-feedback", json={
         "question": "Tell me about a challenge.",
         "answer": "I coordinated the team and solved the issue.",
         "lang": "en",
@@ -54,9 +68,7 @@ def test_tutor_returns_claude_feedback_when_client_is_available(monkeypatch):
 
 def test_question_fallback_uses_requested_language(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "get_anthropic_client", lambda: None)
-    monkeypatch.setattr(db, "DB_PATH", tmp_path / "star_session.db")
-    db.init_db()
-    client = TestClient(main.app)
+    client = authenticated_client(tmp_path, monkeypatch)
     response = client.post("/api/questions", json={
         "resume": "Sales analyst with team leadership experience.",
         "role": "Sales Manager",
@@ -71,9 +83,7 @@ def test_question_fallback_uses_requested_language(tmp_path, monkeypatch):
 
 
 def test_insights_expose_visual_history_payload(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", tmp_path / "star_session.db")
-    db.init_db()
-    client = TestClient(main.app)
+    client = authenticated_client(tmp_path, monkeypatch)
     response = client.get("/api/insights?lang=en")
     payload = response.json()
     assert response.status_code == 200
