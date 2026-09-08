@@ -601,7 +601,11 @@
 
   var LANG_KEY = "sessao-star-lang";
   var currentLang = (function(){
-    try { return localStorage.getItem(LANG_KEY) || "pt"; } catch (e) { return "pt"; }
+    try {
+      var fromUrl = new URLSearchParams(location.search).get("lang");
+      if (fromUrl === "pt" || fromUrl === "en") return fromUrl;
+      return localStorage.getItem(LANG_KEY) || "pt";
+    } catch (e) { return "pt"; }
   })();
 
   function t(key, vars){

@@ -1,62 +1,62 @@
-# Sessão STAR
+# STAR Session
 
-![Sessão STAR — tela inicial](docs/screenshot.png)
+![STAR Session — home screen](docs/screenshot.png)
 
-## Por que isso existe
+## Why this exists
 
-Todo mundo que já passou por um processo seletivo ouviu o conselho: "treine suas respostas pelo método STAR". O problema nunca foi saber o que é STAR — Situação, Tarefa, Ação, Resultado. O problema é treinar isso *em voz alta*, contra uma pergunta que realmente tem a ver com o seu currículo e com a vaga específica que você está disputando, sem precisar convencer um amigo a bancar o recrutador de novo, ou pagar por um coach só pra ouvir você falar por vinte minutos.
+Everyone who has ever gone through a hiring process has heard the advice: "practice your answers using the STAR method." The problem was never understanding what STAR means — Situation, Task, Action, Result. The problem is practicing it *out loud*, against a question that actually relates to your résumé and the specific job you're applying for, without having to talk a friend into playing recruiter again, or paying a coach just to listen to you talk for twenty minutes.
 
-As alternativas de sempre também esbarram em outro problema: bancos de perguntas genéricas não sabem que você liderou um time de quatro pessoas na Norteluz Logística, e ferramentas de voz por IA de verdade normalmente significam mandar seu currículo e sua voz pra alguma API paga na nuvem, sessão após sessão.
+The usual alternatives run into another problem too: generic question banks don't know you led a team of four people at Norteluz Logistics, and real AI voice tools usually mean sending your résumé and your voice to some paid cloud API, session after session.
 
-A Sessão STAR nasceu pra resolver as duas coisas ao mesmo tempo: perguntas que cruzam o *seu* currículo com a JD *dessa* vaga, e uma entrevista falada de verdade — Kokoro TTS fazendo a voz do recrutador, Whisper transcrevendo sua resposta — rodando inteiramente no seu computador, sem custo por minuto e sem sua voz saindo da máquina.
+STAR Session was built to solve both at once: questions that cross-reference *your* résumé with *this* job's JD, and a real spoken interview — Kokoro TTS voicing the recruiter, Whisper transcribing your answer — running entirely on your own computer, with no per-minute cost and no voice data leaving the machine.
 
-## O que ela faz
+## What it does
 
-0. Você escolhe o idioma pela bandeira no topo (🇧🇷 português ou 🇺🇸 inglês) — currículo, vaga, perguntas, voz e relatório seguem essa escolha do início ao fim.
-1. Você envia o currículo (PDF, DOCX, TXT ou colado direto) e cola a descrição da vaga (JD).
-2. O Claude cruza as duas fontes e monta 6 perguntas comportamentais no método STAR — inclusive perguntas que sondam de propósito um requisito da vaga que seu currículo ainda não comprova.
-3. Antes de valer alguma coisa, uma rodada de treino com um tutor explica o método rapidinho e dá feedback sobre uma resposta de aquecimento, sem contar pra nota final.
-4. A entrevista de verdade começa: um recrutador simulado fala cada pergunta em voz alta, você responde pelo microfone, e a transcrição aparece na tela — editável, caso o Whisper entenda alguma palavra errada.
-5. No fim, um relatório aponta, pergunta por pergunta, onde sua resposta cobriu Situação, Tarefa, Ação e Resultado — e onde faltou.
-6. A sessão fica salva no seu histórico local. Depois de acumular respostas suficientes, um modelo treinado nos seus próprios padrões de resposta passa a mirar as próximas perguntas exatamente nos temas onde você costuma deixar a peteca cair.
+0. You pick the language from the flag at the top (🇧🇷 Portuguese or 🇺🇸 English) — résumé, job, questions, voice, and report all follow that choice end to end.
+1. You upload your résumé (PDF, DOCX, TXT, or pasted directly) and paste the job description (JD).
+2. Claude cross-references both and puts together 6 behavioral questions using the STAR method — including questions that deliberately probe a job requirement your résumé doesn't yet prove.
+3. Before anything counts, a practice round with a tutor briefly explains the method and gives feedback on a warm-up answer, none of which affects the final score.
+4. The real interview starts: a simulated recruiter speaks each question out loud, you answer through the microphone, and the transcript appears on screen — editable, in case Whisper mishears a word.
+5. At the end, a report points out, question by question, where your answer covered Situation, Task, Action, and Result — and where it fell short.
+6. The session is saved to your local history. Once enough answers pile up, a model trained on your own response patterns starts aiming future questions exactly at the themes where you tend to drop the ball.
 
-## Como funciona por baixo
+## How it works under the hood
 
 ```
-navegador  <-- HTML/CSS/JS puro, sem build step
+browser  <-- plain HTML/CSS/JS, no build step
     |
     | fetch()
     v
 FastAPI (backend/main.py)
     |-- /api/extract-resume  -> pypdf / python-docx
-    |-- /api/questions       -> Claude API (fallback: heurística local)
-    |-- /api/tts             -> Kokoro TTS   (lock: 1 chamada por vez)
-    |-- /api/stt             -> Whisper      (lock: 1 chamada por vez)
-    |-- /api/tutor-feedback  -> Claude API (fallback: heurística local)
-    |-- /api/report          -> Claude API (fallback: heurística local)
+    |-- /api/questions       -> Claude API (fallback: local heuristic)
+    |-- /api/tts             -> Kokoro TTS   (lock: 1 call at a time)
+    |-- /api/stt             -> Whisper      (lock: 1 call at a time)
+    |-- /api/tutor-feedback  -> Claude API (fallback: local heuristic)
+    |-- /api/report          -> Claude API (fallback: local heuristic)
     |-- /api/session/save    -> SQLite (backend/db.py)
-    |-- /api/insights        -> modelo preditivo (backend/ml.py)
+    |-- /api/insights        -> predictive model (backend/ml.py)
 ```
 
-Tudo passa pelo backend, inclusive a geração de voz e a transcrição — não porque o navegador não saiba gravar áudio, mas porque o Kokoro e o Whisper são modelos Python de verdade, com pesos que passam de 100 MB, e não existe versão deles rodando puramente em JavaScript no seu navegador. A chave da Claude API segue a mesma lógica de sempre: nunca sai do servidor.
+Everything goes through the backend, including voice generation and transcription — not because the browser can't record audio, but because Kokoro and Whisper are real Python models with weights well over 100 MB, and there's no version of them running purely in browser JavaScript. The Claude API key follows the same logic as always: it never leaves the server.
 
-**Histórico e modelo preditivo.** Cada sessão finalizada — currículo, JD, perguntas, respostas, relatório — é salva em SQLite (`backend/db.py`). Uma lista de palavras-chave decide, resposta por resposta, quais dos quatro elementos do STAR parecem cobertos: é o "professor" que rotula os dados. Com menos de 20 respostas reais no histórico, é só essa heurística que fala. A partir da vigésima, `ml.py` treina um classificador de texto (TF-IDF + regressão logística, um por elemento do STAR) sobre tudo que já foi respondido, e passa a usar esse modelo em vez da lista fixa — capturando um pouco do jeito como *você* escreve, não só palavras isoladas. Ele reaprende a cada sessão salva, e o tema onde sua cobertura histórica é mais baixa entra direto no prompt da próxima geração de perguntas.
+**History and predictive model.** Every finished session — résumé, JD, questions, answers, report — is saved to SQLite (`backend/db.py`). A keyword list decides, answer by answer, which of the four STAR elements seem covered: it's the "teacher" that labels the data. With fewer than 20 real answers in the history, that heuristic is the only voice that speaks. From the twentieth answer on, `ml.py` trains a text classifier (TF-IDF + logistic regression, one per STAR element) over everything answered so far, and starts using that model instead of the fixed keyword list — picking up a bit of how *you* actually write, not just isolated words. It retrains on every saved session, and the theme where your historical coverage is lowest goes straight into the prompt for the next round of question generation.
 
-**Limitação honesta:** é um classificador simples, treinado só com o que você mesmo pratica nessa máquina — ele não avalia se sua resposta é *boa*, só se ela parece cobrir estruturalmente os quatro elementos do método, e precisa de dezenas de respostas antes de dizer algo que a heurística de palavras-chave já não diria. E como o Kokoro e o Whisper não são seguros para chamadas concorrentes, o backend serializa as duas com um lock — ótimo para um candidato treinando sozinho, um gargalo se um dia isso precisasse atender várias pessoas ao mesmo tempo.
+**Honest limitation:** it's a simple classifier, trained only on what you practice on this machine — it doesn't judge whether your answer is *good*, only whether it structurally seems to cover the four elements of the method, and it needs dozens of answers before it says anything the keyword heuristic wouldn't already say. And since Kokoro and Whisper aren't safe for concurrent calls, the backend serializes both behind a lock — fine for one candidate practicing alone, a bottleneck if this ever had to serve several people at once.
 
-## Requisitos do sistema
+## System requirements
 
 - Python 3.10+
-- [espeak-ng](https://github.com/espeak-ng/espeak-ng) — usado pelo Kokoro para fonemizar o português:
+- [espeak-ng](https://github.com/espeak-ng/espeak-ng) — used by Kokoro to phonemize both Portuguese and English:
   ```bash
   brew install espeak-ng
   ```
-- ffmpeg — usado para decodificar o áudio gravado no navegador antes de mandar ao Whisper:
+- ffmpeg — used to decode the audio recorded in the browser before sending it to Whisper:
   ```bash
   brew install ffmpeg
   ```
 
-## Instalação
+## Installation
 
 ```bash
 cd backend
@@ -66,11 +66,11 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edite `.env` e adicione sua `ANTHROPIC_API_KEY` se quiser perguntas STAR personalizadas e
-relatório final gerados pelo Claude. Sem a chave, o app funciona normalmente, mas usa perguntas
-e relatório heurísticos (mais genéricos).
+Edit `.env` and add your `ANTHROPIC_API_KEY` if you want personalized STAR questions and a
+final report generated by Claude. Without the key, the app still works, but falls back to
+heuristic (more generic) questions and reports.
 
-## Rodando
+## Running it
 
 ```bash
 cd backend
@@ -78,54 +78,54 @@ source .venv/bin/activate
 uvicorn main:app --reload
 ```
 
-Abra http://localhost:8000 no navegador (Chrome ou Edge recomendados, para permissão de
-microfone mais confiável).
+Open http://localhost:8000 in your browser (Chrome or Edge recommended, for more reliable
+microphone permission).
 
-## Primeira execução
+## First run
 
-- O **Kokoro** baixa os pesos do modelo (~centenas de MB) na primeira chamada a `/api/tts`.
-- O **Whisper** (`faster-whisper`, modelo `small` por padrão) baixa os pesos na primeira chamada
-  a `/api/stt`.
-- Ambos ficam em cache local depois disso; as próximas sessões carregam na hora.
+- **Kokoro** downloads its model weights (a few hundred MB) on the first call to `/api/tts`.
+- **Whisper** (`faster-whisper`, `small` model by default) downloads its weights on the first
+  call to `/api/stt`.
+- Both are cached locally after that; later sessions load instantly.
 
-## Variáveis de ambiente (`backend/.env`)
+## Environment variables (`backend/.env`)
 
-| Variável | Padrão | Descrição |
+| Variable | Default | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — | Chave da API da Anthropic. Sem ela, perguntas e relatório usam heurística local. |
-| `ANTHROPIC_MODEL` | `claude-haiku-4-5` | Modelo Claude usado para gerar perguntas e relatório. |
-| `WHISPER_MODEL` | `small` | Tamanho do modelo Whisper (`tiny`, `base`, `small`, `medium`, `large-v3`). Modelos maiores são mais precisos e mais lentos. |
-| `KOKORO_VOICE` | `pm_alex` | Voz do Kokoro para o recrutador em português. Vozes pt-BR: `pf_dora` (feminina), `pm_alex`, `pm_santa` (masculinas). |
-| `KOKORO_VOICE_EN` | `af_heart` | Voz do Kokoro para o recrutador em inglês (quando 🇺🇸 está selecionado). Vozes em inglês: `af_heart`, `af_bella` (femininas), `am_adam`, `am_michael` (masculinas). |
+| `ANTHROPIC_API_KEY` | — | Anthropic API key. Without it, questions and the report fall back to a local heuristic. |
+| `ANTHROPIC_MODEL` | `claude-haiku-4-5` | Claude model used to generate questions and the report. |
+| `WHISPER_MODEL` | `small` | Whisper model size (`tiny`, `base`, `small`, `medium`, `large-v3`). Larger models are more accurate and slower. |
+| `KOKORO_VOICE` | `pm_alex` | Kokoro voice for the recruiter in Portuguese. pt-BR voices: `pf_dora` (female), `pm_alex`, `pm_santa` (male). |
+| `KOKORO_VOICE_EN` | `af_heart` | Kokoro voice for the recruiter in English (when 🇺🇸 is selected). English voices: `af_heart`, `af_bella` (female), `am_adam`, `am_michael` (male). |
 
-## Estrutura do projeto
+## Project structure
 
 ```
 backend/
-  main.py            FastAPI: todos os endpoints e o serviço do frontend estático.
-  db.py              Persistência em SQLite (backend/data/sessao_star.db, fora do git).
-  ml.py              Modelo preditivo (scikit-learn) de cobertura STAR.
+  main.py            FastAPI: every endpoint, plus serving the static frontend.
+  db.py              SQLite persistence (backend/data/sessao_star.db, outside git).
+  ml.py              Predictive model (scikit-learn) for STAR coverage.
   requirements.txt
   .env.example
 frontend/
-  index.html         Interface única (HTML/CSS/JS puro, sem build step).
+  index.html         Single-page UI (plain HTML/CSS/JS, no build step).
 docs/
-  screenshot.png     Captura usada neste README.
+  screenshot.png     Screenshot used in this README.
 ```
 
-O frontend grava a resposta com `MediaRecorder`, envia o áudio para `/api/stt` e recebe o texto
-transcrito (não é streaming ao vivo — grava, para, transcreve). A pergunta é sintetizada uma vez
-por `/api/tts` e o áudio fica em cache no navegador durante a sessão, então "ouvir de novo" não
-gera uma nova chamada ao Kokoro.
+The frontend records the answer with `MediaRecorder`, sends the audio to `/api/stt`, and gets
+back the transcribed text (not live streaming — it records, stops, then transcribes). The
+question is synthesized once through `/api/tts` and the audio is cached in the browser for the
+session, so "play again" doesn't trigger a new call to Kokoro.
 
-**Privacidade:** `backend/data/` (banco SQLite + modelo treinado) e `backend/.env` (sua chave de
-API) ficam fora do git — o primeiro contém trechos de currículo e as respostas faladas nas suas
-entrevistas de treino.
+**Privacy:** `backend/data/` (SQLite database + trained model) and `backend/.env` (your API key)
+stay out of git — the former holds résumé excerpts and the answers you speak during your practice
+interviews.
 
-## Problemas comuns
+## Common issues
 
-- **Erro ao gerar voz (Kokoro)**: confirme que `espeak-ng` está instalado (`espeak-ng --version`).
-- **Erro ao transcrever (Whisper)**: confirme que `ffmpeg` está instalado (`ffmpeg -version`).
-- **Microfone não pede permissão**: acesse via `http://localhost:8000` (não `127.0.0.1` misturado
-  com outro host) — navegadores exigem contexto seguro (localhost conta como seguro) para o
-  `getUserMedia`.
+- **Voice generation error (Kokoro)**: make sure `espeak-ng` is installed (`espeak-ng --version`).
+- **Transcription error (Whisper)**: make sure `ffmpeg` is installed (`ffmpeg -version`).
+- **Microphone never asks for permission**: access it via `http://localhost:8000` (not a mix of
+  `127.0.0.1` and another host) — browsers require a secure context (localhost counts as secure)
+  for `getUserMedia`.
