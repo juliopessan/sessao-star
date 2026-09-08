@@ -54,6 +54,7 @@
     backdrop-filter:blur(8px);
     border-bottom:1px solid var(--line);
   }
+  .topbar-right{display:flex;align-items:center;gap:14px;}
   .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:19px;letter-spacing:0.02em;}
   .brand .mark{color:var(--accent);}
   .stagenav{display:flex;gap:0;border:1px solid var(--line);}
@@ -66,6 +67,15 @@
   .stagenav button.active{color:var(--bg);background:var(--accent);}
   .stagenav button:not(.active):not(:disabled):hover{color:var(--text);}
   .stagenav button:disabled{opacity:0.35;cursor:not-allowed;}
+
+  .langswitch{display:flex;gap:0;border:1px solid var(--line);}
+  .langswitch button{
+    background:none;border:none;padding:7px 11px;font-size:15px;line-height:1;
+    border-right:1px solid var(--line);filter:grayscale(1);opacity:0.45;transition:opacity .15s,filter .15s,background .15s;
+  }
+  .langswitch button:last-child{border-right:none;}
+  .langswitch button.active{filter:none;opacity:1;background:var(--panel-2);}
+  .langswitch button:hover{filter:none;opacity:1;}
 
   .hero{padding:76px 0 56px;border-bottom:1px solid var(--line);}
   .eyebrow{
@@ -104,6 +114,7 @@
   .btn.ghost:hover{color:var(--text);}
 
   .note{font-size:11.5px;color:var(--text-faint);margin-top:16px;max-width:52ch;}
+  .note code{color:var(--text-dim);}
 
   .strip{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line);}
   .strip .cell{padding:30px 32px;border-right:1px solid var(--line);}
@@ -173,7 +184,7 @@
   .transcript-box{border-top:1px solid var(--line);padding:22px 22px 8px;}
   .transcript-box .tlabel{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-faint);margin-bottom:10px;}
   .transcript-live{min-height:64px;font-size:13px;color:var(--text);white-space:pre-wrap;border-left:2px solid var(--line-strong);padding-left:14px;margin-bottom:14px;}
-  .transcript-live:empty::before{content:"— aguardando resposta —";color:var(--text-faint);}
+  .transcript-live:empty::before{content:attr(data-empty-label);color:var(--text-faint);}
 
   .console-controls{display:flex;flex-wrap:wrap;gap:10px;padding:16px 22px 22px;border-top:1px solid var(--line);}
 
@@ -210,91 +221,97 @@
 <body>
 
 <div class="topbar">
-  <div class="brand"><span class="mark">[ ]</span>SESSÃO STAR</div>
-  <div class="stagenav">
-    <button id="nav-setup" class="active">Dossiê</button>
-    <button id="nav-interview" disabled>Sessão</button>
-    <button id="nav-summary" disabled>Relatório</button>
+  <div class="brand"><span class="mark">[ ]</span><span data-i18n="brand">SESSÃO STAR</span></div>
+  <div class="topbar-right">
+    <div class="stagenav">
+      <button id="nav-setup" class="active" data-i18n="nav.setup">Dossiê</button>
+      <button id="nav-interview" disabled data-i18n="nav.interview">Sessão</button>
+      <button id="nav-summary" disabled data-i18n="nav.summary">Relatório</button>
+    </div>
+    <div class="langswitch" id="langswitch">
+      <button type="button" data-lang="pt" class="active" title="Português" aria-label="Português">🇧🇷</button>
+      <button type="button" data-lang="en" title="English" aria-label="English">🇺🇸</button>
+    </div>
   </div>
 </div>
 
 <div class="wrap">
   <section class="hero">
-    <div class="eyebrow"><span class="dot live"></span>SIMULADOR LOCAL · KOKORO + WHISPER</div>
-    <h1 class="headline">Treine sua próxima entrevista, em voz alta.</h1>
-    <p class="sub">Cole seu currículo, o Claude monta perguntas comportamentais no método <b>Situação · Tarefa · Ação · Resultado</b>, e um recrutador simulado conduz a entrevista falando com você — voz gerada pelo <b>Kokoro TTS</b> e transcrita pelo <b>Whisper</b>, ambos rodando localmente no seu servidor.</p>
+    <div class="eyebrow"><span class="dot live"></span><span data-i18n="hero.eyebrow">SIMULADOR LOCAL · KOKORO + WHISPER</span></div>
+    <h1 class="headline" data-i18n="hero.headline">Treine sua próxima entrevista, em voz alta.</h1>
+    <p class="sub" data-i18n-html="hero.sub">Cole seu currículo, o Claude monta perguntas comportamentais no método <b>Situação · Tarefa · Ação · Resultado</b>, e um recrutador simulado conduz a entrevista falando com você — voz gerada pelo <b>Kokoro TTS</b> e transcrita pelo <b>Whisper</b>, ambos rodando localmente no seu servidor.</p>
     <div class="cta-row">
-      <button class="btn primary" id="cta-start">[ Ir para o dossiê ]</button>
-      <span class="note" style="margin-top:0;">Este app precisa do backend Python rodando em <code>localhost:8000</code>. Veja o README se a página não carregar as perguntas ou a voz.</span>
+      <button class="btn primary" id="cta-start" data-i18n="hero.cta">[ Ir para o dossiê ]</button>
+      <span class="note" style="margin-top:0;" data-i18n-html="hero.note">Este app precisa do backend Python rodando em <code>localhost:8000</code>. Veja o README se a página não carregar as perguntas ou a voz.</span>
     </div>
   </section>
 
   <section class="strip">
     <div class="cell">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/></svg>
-      <h3>Voz local</h3>
-      <p>O recrutador fala com a voz do Kokoro TTS; você responde pelo microfone e o Whisper transcreve sua resposta — tudo processado no seu próprio computador.</p>
+      <h3 data-i18n="feat1.title">Voz local</h3>
+      <p data-i18n="feat1.desc">O recrutador fala com a voz do Kokoro TTS; você responde pelo microfone e o Whisper transcreve sua resposta — tudo processado no seu próprio computador.</p>
     </div>
     <div class="cell">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>
-      <h3>Motor STAR</h3>
-      <p>Cruzando o currículo com a descrição da vaga (JD), o Claude gera perguntas comportamentais reais — liderança, conflito, prazo, falha, iniciativa.</p>
+      <h3 data-i18n="feat2.title">Motor STAR</h3>
+      <p data-i18n="feat2.desc">Cruzando o currículo com a descrição da vaga (JD), o Claude gera perguntas comportamentais reais — liderança, conflito, prazo, falha, iniciativa.</p>
     </div>
     <div class="cell">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
-      <h3>Relatório de sessão</h3>
-      <p>Ao final, um relatório aponta onde cada resposta cobriu Situação, Tarefa, Ação e Resultado — e onde faltou.</p>
+      <h3 data-i18n="feat3.title">Relatório de sessão</h3>
+      <p data-i18n="feat3.desc">Ao final, um relatório aponta onde cada resposta cobriu Situação, Tarefa, Ação e Resultado — e onde faltou.</p>
     </div>
   </section>
 
   <!-- ===================== SETUP ===================== -->
   <section class="stage active" id="stage-setup">
     <div class="stage-head">
-      <div class="stage-title">01 · Dossiê do candidato</div>
-      <div class="stage-meta" id="setup-meta">exemplo carregado</div>
+      <div class="stage-title" data-i18n="setup.title">01 · Dossiê do candidato</div>
+      <div class="stage-meta" id="setup-meta" data-i18n="setup.meta.example">exemplo carregado</div>
     </div>
 
     <div class="setup-grid">
       <div class="setup-left">
         <div class="panel">
-          <div class="panel-label">Currículo do candidato</div>
+          <div class="panel-label" data-i18n="panel.cv.label">Currículo do candidato</div>
           <div class="field">
-            <label for="cv-file">Enviar currículo (PDF, DOCX ou TXT)</label>
+            <label for="cv-file" data-i18n="field.cvfile.label">Enviar currículo (PDF, DOCX ou TXT)</label>
             <input id="cv-file" type="file" accept=".pdf,.docx,.txt,.md">
-            <div class="hint" id="cv-status">Nenhum arquivo enviado — usando o exemplo abaixo.</div>
+            <div class="hint" id="cv-status" data-i18n="cv.status.none">Nenhum arquivo enviado — usando o exemplo abaixo.</div>
           </div>
           <div class="field">
-            <label for="resume">Ou cole o texto do currículo</label>
-            <textarea id="resume" placeholder="Cole aqui a experiência, cargos, empresas e conquistas..."></textarea>
-            <div class="hint">Quanto mais específico (números, nomes de projetos, ferramentas), melhores as perguntas.</div>
+            <label for="resume" data-i18n="field.resume.label">Ou cole o texto do currículo</label>
+            <textarea id="resume" data-i18n-ph="field.resume.placeholder" placeholder="Cole aqui a experiência, cargos, empresas e conquistas..."></textarea>
+            <div class="hint" data-i18n="field.resume.hint">Quanto mais específico (números, nomes de projetos, ferramentas), melhores as perguntas.</div>
           </div>
           <div class="field">
-            <label for="linkedin">URL do LinkedIn (opcional)</label>
-            <input id="linkedin" type="text" placeholder="linkedin.com/in/seu-perfil">
-            <div class="hint">Usada só como referência de contexto — o servidor não acessa o link automaticamente, então cole no currículo o que for relevante de lá.</div>
+            <label for="linkedin" data-i18n="field.linkedin.label">URL do LinkedIn (opcional)</label>
+            <input id="linkedin" type="text" data-i18n-ph="field.linkedin.placeholder" placeholder="linkedin.com/in/seu-perfil">
+            <div class="hint" data-i18n="field.linkedin.hint">Usada só como referência de contexto — o servidor não acessa o link automaticamente, então cole no currículo o que for relevante de lá.</div>
           </div>
         </div>
 
         <div class="panel">
-          <div class="panel-label">Descrição da vaga (JD)</div>
+          <div class="panel-label" data-i18n="panel.jd.label">Descrição da vaga (JD)</div>
           <div class="field">
-            <label for="role">Título da vaga (opcional)</label>
-            <input id="role" type="text" placeholder="Ex.: Analista de Dados Sênior">
+            <label for="role" data-i18n="field.role.label">Título da vaga (opcional)</label>
+            <input id="role" type="text" data-i18n-ph="field.role.placeholder" placeholder="Ex.: Analista de Dados Sênior">
           </div>
           <div class="field">
-            <label for="jd">Cole a descrição completa da vaga</label>
-            <textarea id="jd" placeholder="Cole aqui os requisitos, responsabilidades e qualificações da vaga..."></textarea>
-            <div class="hint">O Claude cruza os requisitos da vaga com o histórico do currículo para escolher as perguntas.</div>
+            <label for="jd" data-i18n="field.jd.label">Cole a descrição completa da vaga</label>
+            <textarea id="jd" data-i18n-ph="field.jd.placeholder" placeholder="Cole aqui os requisitos, responsabilidades e qualificações da vaga..."></textarea>
+            <div class="hint" data-i18n="field.jd.hint">O Claude cruza os requisitos da vaga com o histórico do currículo para escolher as perguntas.</div>
           </div>
-          <button class="btn primary" id="btn-generate">[ Gerar perguntas STAR ]</button>
+          <button class="btn primary" id="btn-generate" data-i18n="btn.generate">[ Gerar perguntas STAR ]</button>
           <span class="note" id="gen-status" style="display:inline-block;margin-top:0;margin-left:14px;"></span>
         </div>
       </div>
 
       <div class="panel">
-        <div class="panel-label">Terminal de perguntas <span id="qcount">6</span></div>
+        <div class="panel-label"><span data-i18n="panel.questions.label">Terminal de perguntas</span> <span id="qcount">6</span></div>
         <div class="qdeck" id="qdeck"></div>
-        <button class="btn primary" id="btn-start-interview" style="margin-top:20px;width:100%;">[ Iniciar sessão de voz ]</button>
+        <button class="btn primary" id="btn-start-interview" style="margin-top:20px;width:100%;" data-i18n="btn.startinterview">[ Iniciar sessão de voz ]</button>
       </div>
     </div>
   </section>
@@ -302,14 +319,14 @@
   <!-- ===================== INTERVIEW ===================== -->
   <section class="stage" id="stage-interview">
     <div class="stage-head">
-      <div class="stage-title">02 · Sessão de voz</div>
+      <div class="stage-title" data-i18n="interview.title">02 · Sessão de voz</div>
       <div class="stage-meta" id="interview-meta">KOKORO + WHISPER</div>
     </div>
 
     <div class="console">
       <div class="console-top">
         <div class="progress" id="progress">[ 01 / 06 ]</div>
-        <div class="onair" id="onair"><span class="dot"></span><span class="onair-label" id="onair-label">EM ESPERA</span></div>
+        <div class="onair" id="onair"><span class="dot"></span><span class="onair-label" id="onair-label" data-i18n="onair.idle">EM ESPERA</span></div>
       </div>
 
       <div class="cue">
@@ -319,21 +336,21 @@
       </div>
 
       <div class="transcript-box">
-        <div class="tlabel">Sua resposta (transcrita pelo Whisper — pode editar)</div>
-        <div class="transcript-live" id="transcript-live" contenteditable="true"></div>
+        <div class="tlabel" data-i18n="transcript.label">Sua resposta (transcrita pelo Whisper — pode editar)</div>
+        <div class="transcript-live" id="transcript-live" contenteditable="true" data-empty-label="— aguardando resposta —"></div>
       </div>
 
       <div class="console-controls" id="console-controls">
-        <button class="btn" id="btn-replay">[ Ouvir pergunta de novo ]</button>
-        <button class="btn primary" id="btn-mic">[ ● Gravar resposta ]</button>
-        <button class="btn ghost" id="btn-skip">Pular treino</button>
-        <button class="btn" id="btn-next" disabled>[ Ver feedback do tutor → ]</button>
+        <button class="btn" id="btn-replay" data-i18n="btn.replay">[ Ouvir pergunta de novo ]</button>
+        <button class="btn primary" id="btn-mic" data-i18n="btn.mic.record">[ ● Gravar resposta ]</button>
+        <button class="btn ghost" id="btn-skip" data-i18n="btn.skip.practice">Pular treino</button>
+        <button class="btn" id="btn-next" disabled data-i18n="btn.next.feedback">[ Ver feedback do tutor → ]</button>
       </div>
 
       <div class="tutor-panel" id="tutor-panel" hidden>
-        <div class="tlabel">Feedback do tutor</div>
-        <div class="tutor-feedback" id="tutor-feedback">Analisando sua resposta de treino…</div>
-        <button class="btn primary" id="btn-start-real" style="margin-top:16px;">[ Começar entrevista real → ]</button>
+        <div class="tlabel" data-i18n="tutor.label">Feedback do tutor</div>
+        <div class="tutor-feedback" id="tutor-feedback" data-i18n="tutor.analyzing">Analisando sua resposta de treino…</div>
+        <button class="btn primary" id="btn-start-real" style="margin-top:16px;" data-i18n="btn.startreal">[ Começar entrevista real → ]</button>
       </div>
 
       <div class="support-note" id="voice-support-note"></div>
@@ -344,49 +361,357 @@
   <!-- ===================== SUMMARY ===================== -->
   <section class="stage" id="stage-summary">
     <div class="stage-head">
-      <div class="stage-title">03 · Relatório de sessão</div>
+      <div class="stage-title" data-i18n="summary.title">03 · Relatório de sessão</div>
       <div class="stage-meta" id="summary-meta"></div>
     </div>
 
     <div class="report-panel">
-      <h3>Avaliação geral</h3>
-      <div class="report-body" id="report-body">Gerando avaliação…</div>
+      <h3 data-i18n="report.title">Avaliação geral</h3>
+      <div class="report-body" id="report-body" data-i18n="report.generating">Gerando avaliação…</div>
     </div>
 
     <div class="report-panel">
-      <h3>Seu histórico &amp; modelo preditivo</h3>
-      <div class="report-body" id="insights-body">Carregando histórico…</div>
+      <h3 data-i18n="insights.title">Seu histórico &amp; modelo preditivo</h3>
+      <div class="report-body" id="insights-body" data-i18n="insights.loading">Carregando histórico…</div>
     </div>
 
     <div class="transcript-list" id="transcript-list"></div>
 
     <div class="cta-row" style="margin-top:24px;">
-      <button class="btn" id="btn-copy">[ Copiar transcrição ]</button>
-      <button class="btn primary" id="btn-restart">[ Nova sessão ]</button>
+      <button class="btn" id="btn-copy" data-i18n="btn.copy">[ Copiar transcrição ]</button>
+      <button class="btn primary" id="btn-restart" data-i18n="btn.restart">[ Nova sessão ]</button>
     </div>
   </section>
 </div>
 
 <footer>
-  <span>SESSÃO STAR © 2026</span>
-  <span>Voz: Kokoro TTS + Whisper (local) · Perguntas e avaliação: Claude API quando configurada</span>
+  <span data-i18n="footer.brand">SESSÃO STAR © 2026</span>
+  <span data-i18n="footer.tech">Voz: Kokoro TTS + Whisper (local) · Perguntas e avaliação: Claude API quando configurada</span>
 </footer>
 
 <script>
 (function(){
   "use strict";
 
-  var EXAMPLE_RESUME = "Analista de Operações na Norteluz Logística (2021–2026). Liderei um time de 4 pessoas na migração do sistema de rastreamento de pedidos, reduzindo erros de entrega em 23% no primeiro trimestre. Coordenei um projeto com prazo apertado de 3 semanas para atender uma nova exigência regulatória, negociando prioridades com o time de TI. Antes disso, atendimento ao cliente na Vetta Seguros, onde propus um novo roteiro de atendimento que caiu o tempo médio de chamada em 40 segundos. Formação em Administração, cursos de Excel avançado e Power BI.";
-  var EXAMPLE_JD = "Vaga: Coordenador(a) de Operações — Norteluz Logística busca profissional para liderar a equipe de rastreamento e atendimento, com responsabilidade por SLAs de entrega, gestão de prazos regulatórios e interface direta com o time de TI. Requisitos: experiência liderando equipes pequenas, histórico de redução de erros/retrabalho, familiaridade com Power BI para acompanhamento de indicadores, e capacidade de negociar prioridades sob prazo apertado.";
+  // ============================================================
+  // i18n
+  // ============================================================
+  var I18N = {
+    pt: {
+      "brand": "SESSÃO STAR",
+      "nav.setup": "Dossiê", "nav.interview": "Sessão", "nav.summary": "Relatório",
+      "hero.eyebrow": "SIMULADOR LOCAL · KOKORO + WHISPER",
+      "hero.headline": "Treine sua próxima entrevista, em voz alta.",
+      "hero.sub": 'Cole seu currículo, o Claude monta perguntas comportamentais no método <b>Situação · Tarefa · Ação · Resultado</b>, e um recrutador simulado conduz a entrevista falando com você — voz gerada pelo <b>Kokoro TTS</b> e transcrita pelo <b>Whisper</b>, ambos rodando localmente no seu servidor.',
+      "hero.cta": "[ Ir para o dossiê ]",
+      "hero.note": 'Este app precisa do backend Python rodando em <code>localhost:8000</code>. Veja o README se a página não carregar as perguntas ou a voz.',
+      "feat1.title": "Voz local",
+      "feat1.desc": "O recrutador fala com a voz do Kokoro TTS; você responde pelo microfone e o Whisper transcreve sua resposta — tudo processado no seu próprio computador.",
+      "feat2.title": "Motor STAR",
+      "feat2.desc": "Cruzando o currículo com a descrição da vaga (JD), o Claude gera perguntas comportamentais reais — liderança, conflito, prazo, falha, iniciativa.",
+      "feat3.title": "Relatório de sessão",
+      "feat3.desc": "Ao final, um relatório aponta onde cada resposta cobriu Situação, Tarefa, Ação e Resultado — e onde faltou.",
+      "setup.title": "01 · Dossiê do candidato",
+      "setup.meta.example": "exemplo carregado",
+      "setup.meta.generating": "gerando…",
+      "setup.meta.claude": "perguntas personalizadas geradas",
+      "setup.meta.local": "perguntas locais geradas (sem Claude API)",
+      "setup.meta.offline": "backend indisponível — perguntas locais no navegador",
+      "panel.cv.label": "Currículo do candidato",
+      "field.cvfile.label": "Enviar currículo (PDF, DOCX ou TXT)",
+      "cv.status.none": "Nenhum arquivo enviado — usando o exemplo abaixo.",
+      "cv.status.extracting": "Extraindo texto de {{name}}…",
+      "cv.status.done": "Currículo extraído de {{name}} ({{n}} caracteres) — revise antes de gerar as perguntas.",
+      "cv.status.error": "Não consegui ler esse arquivo ({{err}}). Cole o texto do currículo manualmente abaixo.",
+      "field.resume.label": "Ou cole o texto do currículo",
+      "field.resume.placeholder": "Cole aqui a experiência, cargos, empresas e conquistas...",
+      "field.resume.hint": "Quanto mais específico (números, nomes de projetos, ferramentas), melhores as perguntas.",
+      "field.linkedin.label": "URL do LinkedIn (opcional)",
+      "field.linkedin.placeholder": "linkedin.com/in/seu-perfil",
+      "field.linkedin.hint": "Usada só como referência de contexto — o servidor não acessa o link automaticamente, então cole no currículo o que for relevante de lá.",
+      "panel.jd.label": "Descrição da vaga (JD)",
+      "field.role.label": "Título da vaga (opcional)",
+      "field.role.placeholder": "Ex.: Analista de Dados Sênior",
+      "field.jd.label": "Cole a descrição completa da vaga",
+      "field.jd.placeholder": "Cole aqui os requisitos, responsabilidades e qualificações da vaga...",
+      "field.jd.hint": "O Claude cruza os requisitos da vaga com o histórico do currículo para escolher as perguntas.",
+      "btn.generate": "[ Gerar perguntas STAR ]",
+      "gen.status.cv_first": "Envie ou cole o currículo primeiro.",
+      "gen.status.analyzing": "Analisando dossiê e vaga…",
+      "panel.questions.label": "Terminal de perguntas",
+      "qdeck.empty": "Nenhuma pergunta ainda. Envie o currículo, cole a JD e gere a sessão.",
+      "btn.startinterview": "[ Iniciar sessão de voz ]",
+      "interview.title": "02 · Sessão de voz",
+      "interview.meta.practice": "TUTOR · RODADA DE TREINO",
+      "interview.meta.real": "KOKORO + WHISPER",
+      "progress.practice": "[ TREINO ]",
+      "onair.idle": "EM ESPERA",
+      "onair.speaking.tutor": "TUTOR FALANDO",
+      "onair.speaking.recruiter": "RECRUTADOR FALANDO",
+      "onair.listening": "GRAVANDO",
+      "onair.processing": "TRANSCREVENDO",
+      "cue.theme.tutorial": "TUTORIAL · TREINO",
+      "transcript.label": "Sua resposta (transcrita pelo Whisper — pode editar)",
+      "transcript.empty": "— aguardando resposta —",
+      "btn.replay": "[ Ouvir pergunta de novo ]",
+      "btn.mic.record": "[ ● Gravar resposta ]",
+      "btn.mic.stop": "[ ■ Parar e transcrever ]",
+      "btn.skip.practice": "Pular treino",
+      "btn.skip.real": "Pular pergunta",
+      "btn.next.feedback": "[ Ver feedback do tutor → ]",
+      "btn.next.question": "[ Próxima pergunta → ]",
+      "btn.next.finish": "[ Finalizar sessão → ]",
+      "tutor.label": "Feedback do tutor",
+      "tutor.analyzing": "Analisando sua resposta de treino…",
+      "tutor.error": "Não consegui gerar o feedback do tutor agora — mas você já pode seguir para a entrevista real.",
+      "btn.startreal": "[ Começar entrevista real → ]",
+      "voice.support.norecord": "Gravação de áudio não disponível neste navegador — digite sua resposta diretamente na caixa de transcrição.",
+      "voice.support.ok": 'Clique em "Gravar resposta", fale, e clique de novo para parar e transcrever com o Whisper.',
+      "error.tts": "Não consegui gerar a voz (Kokoro). O backend está rodando? Você ainda pode ler a pergunta acima.",
+      "error.mic": "Não consegui acessar o microfone. Verifique a permissão do navegador.",
+      "error.stt": "Não consegui transcrever com o Whisper. O backend está rodando? Digite sua resposta manualmente.",
+      "summary.title": "03 · Relatório de sessão",
+      "summary.meta": "{{n}} respostas registradas",
+      "report.title": "Avaliação geral",
+      "report.generating": "Gerando avaliação…",
+      "report.none": "Nenhuma resposta foi registrada nesta sessão.",
+      "report.error": "Não consegui gerar a avaliação — o backend está rodando?",
+      "insights.title": "Seu histórico &amp; modelo preditivo",
+      "insights.loading": "Carregando histórico…",
+      "insights.error": "Não consegui carregar seu histórico agora — o backend está rodando?",
+      "insights.summary": "{{sessions}} sessão(ões) e {{answers}} resposta(s) registradas no seu histórico local.",
+      "insights.model.trained": "Modelo preditivo: treinado com {{n}} respostas passadas — as perguntas e o feedback já levam em conta seus padrões de resposta.",
+      "insights.model.cold": "Modelo preditivo: ainda usando heurística simples ({{n}}/{{min}} respostas coletadas). Continue praticando pra ativar o modelo treinado.",
+      "insights.weak": "Temas historicamente mais fracos: {{list}}. Novas sessões vão priorizar perguntas nesses temas.",
+      "insights.weak.item": "{{theme}} (cobertura média {{pct}}%, {{n}} resposta(s))",
+      "answer.label": "Resposta",
+      "answer.none": "(sem resposta)",
+      "answer.skipped": "— pergunta pulada —",
+      "btn.copy": "[ Copiar transcrição ]",
+      "btn.copy.done": "[ Copiado ]",
+      "copy.skipped": "(pulada)",
+      "btn.restart": "[ Nova sessão ]",
+      "footer.brand": "SESSÃO STAR © 2026",
+      "footer.tech": "Voz: Kokoro TTS + Whisper (local) · Perguntas e avaliação: Claude API quando configurada",
+      "practice.question": "Para começar, vamos treinar: conte sobre uma vez em que você teve que resolver um problema inesperado bem na hora — no trabalho, na faculdade, ou em qualquer outro contexto do dia a dia.",
+      "practice.intro": "Antes de começarmos de verdade, uma explicação rápida sobre o método STAR. Toda boa resposta de entrevista comportamental cobre quatro partes: a Situação em que você estava, a Tarefa que era sua responsabilidade, a Ação que você tomou, e o Resultado que você alcançou. Vamos treinar com uma pergunta simples, essa não conta pra nota final. ",
+      "cue.loading": "Carregando pergunta…"
+    },
+    en: {
+      "brand": "STAR SESSION",
+      "nav.setup": "Dossier", "nav.interview": "Session", "nav.summary": "Report",
+      "hero.eyebrow": "LOCAL SIMULATOR · KOKORO + WHISPER",
+      "hero.headline": "Practice your next interview, out loud.",
+      "hero.sub": 'Send your résumé, Claude puts together behavioral questions using the <b>Situation · Task · Action · Result</b> method, and a simulated recruiter conducts the interview by talking to you — voice generated by <b>Kokoro TTS</b> and transcribed by <b>Whisper</b>, both running locally on your server.',
+      "hero.cta": "[ Go to dossier ]",
+      "hero.note": 'This app needs the Python backend running on <code>localhost:8000</code>. Check the README if the page doesn’t load questions or voice.',
+      "feat1.title": "Local voice",
+      "feat1.desc": "The recruiter speaks with Kokoro TTS's voice; you answer through the microphone and Whisper transcribes your answer — all processed on your own computer.",
+      "feat2.title": "STAR engine",
+      "feat2.desc": "Cross-referencing your résumé with the job description (JD), Claude generates real behavioral questions — leadership, conflict, deadlines, failure, initiative.",
+      "feat3.title": "Session report",
+      "feat3.desc": "At the end, a report points out where each answer covered Situation, Task, Action and Result — and where it fell short.",
+      "setup.title": "01 · Candidate dossier",
+      "setup.meta.example": "example loaded",
+      "setup.meta.generating": "generating…",
+      "setup.meta.claude": "personalized questions generated",
+      "setup.meta.local": "local questions generated (no Claude API)",
+      "setup.meta.offline": "backend unavailable — local questions in the browser",
+      "panel.cv.label": "Candidate résumé",
+      "field.cvfile.label": "Upload résumé (PDF, DOCX or TXT)",
+      "cv.status.none": "No file uploaded — using the example below.",
+      "cv.status.extracting": "Extracting text from {{name}}…",
+      "cv.status.done": "Résumé extracted from {{name}} ({{n}} characters) — review before generating questions.",
+      "cv.status.error": "Couldn't read that file ({{err}}). Paste the résumé text manually below.",
+      "field.resume.label": "Or paste the résumé text",
+      "field.resume.placeholder": "Paste your experience, roles, companies and achievements here...",
+      "field.resume.hint": "The more specific (numbers, project names, tools), the better the questions.",
+      "field.linkedin.label": "LinkedIn URL (optional)",
+      "field.linkedin.placeholder": "linkedin.com/in/your-profile",
+      "field.linkedin.hint": "Used only as context — the server doesn't fetch the link automatically, so paste anything relevant from it into the résumé.",
+      "panel.jd.label": "Job description (JD)",
+      "field.role.label": "Job title (optional)",
+      "field.role.placeholder": "E.g.: Senior Data Analyst",
+      "field.jd.label": "Paste the full job description",
+      "field.jd.placeholder": "Paste the requirements, responsibilities and qualifications here...",
+      "field.jd.hint": "Claude cross-references the job requirements with the résumé history to pick the questions.",
+      "btn.generate": "[ Generate STAR questions ]",
+      "gen.status.cv_first": "Upload or paste the résumé first.",
+      "gen.status.analyzing": "Analyzing dossier and job…",
+      "panel.questions.label": "Question terminal",
+      "qdeck.empty": "No questions yet. Upload the résumé, paste the JD, and generate the session.",
+      "btn.startinterview": "[ Start voice session ]",
+      "interview.title": "02 · Voice session",
+      "interview.meta.practice": "TUTOR · PRACTICE ROUND",
+      "interview.meta.real": "KOKORO + WHISPER",
+      "progress.practice": "[ PRACTICE ]",
+      "onair.idle": "STANDING BY",
+      "onair.speaking.tutor": "TUTOR SPEAKING",
+      "onair.speaking.recruiter": "RECRUITER SPEAKING",
+      "onair.listening": "RECORDING",
+      "onair.processing": "TRANSCRIBING",
+      "cue.theme.tutorial": "TUTORIAL · PRACTICE",
+      "transcript.label": "Your answer (transcribed by Whisper — editable)",
+      "transcript.empty": "— waiting for an answer —",
+      "btn.replay": "[ Play question again ]",
+      "btn.mic.record": "[ ● Record answer ]",
+      "btn.mic.stop": "[ ■ Stop and transcribe ]",
+      "btn.skip.practice": "Skip practice",
+      "btn.skip.real": "Skip question",
+      "btn.next.feedback": "[ See tutor feedback → ]",
+      "btn.next.question": "[ Next question → ]",
+      "btn.next.finish": "[ Finish session → ]",
+      "tutor.label": "Tutor feedback",
+      "tutor.analyzing": "Analyzing your practice answer…",
+      "tutor.error": "Couldn't generate tutor feedback right now — but you can still move on to the real interview.",
+      "btn.startreal": "[ Start real interview → ]",
+      "voice.support.norecord": "Audio recording isn't available in this browser — type your answer directly in the transcript box.",
+      "voice.support.ok": 'Click "Record answer", speak, and click again to stop and transcribe with Whisper.',
+      "error.tts": "Couldn't generate voice (Kokoro). Is the backend running? You can still read the question above.",
+      "error.mic": "Couldn't access the microphone. Check your browser permission.",
+      "error.stt": "Couldn't transcribe with Whisper. Is the backend running? Type your answer manually.",
+      "summary.title": "03 · Session report",
+      "summary.meta": "{{n}} answers recorded",
+      "report.title": "Overall evaluation",
+      "report.generating": "Generating evaluation…",
+      "report.none": "No answers were recorded in this session.",
+      "report.error": "Couldn't generate the evaluation — is the backend running?",
+      "insights.title": "Your history &amp; predictive model",
+      "insights.loading": "Loading history…",
+      "insights.error": "Couldn't load your history right now — is the backend running?",
+      "insights.summary": "{{sessions}} session(s) and {{answers}} answer(s) recorded in your local history.",
+      "insights.model.trained": "Predictive model: trained on {{n}} past answers — questions and feedback already account for your response patterns.",
+      "insights.model.cold": "Predictive model: still using a simple heuristic ({{n}}/{{min}} answers collected). Keep practicing to activate the trained model.",
+      "insights.weak": "Historically weaker themes: {{list}}. New sessions will prioritize questions on these themes.",
+      "insights.weak.item": "{{theme}} (average coverage {{pct}}%, {{n}} answer(s))",
+      "answer.label": "Answer",
+      "answer.none": "(no answer)",
+      "answer.skipped": "— question skipped —",
+      "btn.copy": "[ Copy transcript ]",
+      "btn.copy.done": "[ Copied ]",
+      "copy.skipped": "(skipped)",
+      "btn.restart": "[ New session ]",
+      "footer.brand": "STAR SESSION © 2026",
+      "footer.tech": "Voice: Kokoro TTS + Whisper (local) · Questions and evaluation: Claude API when configured",
+      "practice.question": "To start, let's practice: tell me about a time you had to solve an unexpected problem on the spot — at work, in school, or in any other everyday context.",
+      "practice.intro": "Before we get into the real thing, a quick explanation of the STAR method. Every good behavioral answer covers four parts: the Situation you were in, the Task that was your responsibility, the Action you took, and the Result you achieved. Let's practice with a simple question — this one doesn't count toward your final score. ",
+      "cue.loading": "Loading question…"
+    }
+  };
+
+  var LANG_KEY = "sessao-star-lang";
+  var currentLang = (function(){
+    try { return localStorage.getItem(LANG_KEY) || "pt"; } catch (e) { return "pt"; }
+  })();
+
+  function t(key, vars){
+    var dict = I18N[currentLang] || I18N.pt;
+    var str = dict[key] != null ? dict[key] : (I18N.pt[key] || key);
+    if (vars){
+      Object.keys(vars).forEach(function(k){
+        str = str.replace(new RegExp("\\{\\{" + k + "\\}\\}", "g"), vars[k]);
+      });
+    }
+    return str;
+  }
+
+  function applyStaticText(){
+    document.querySelectorAll("[data-i18n]").forEach(function(el){
+      el.textContent = t(el.getAttribute("data-i18n"));
+    });
+    document.querySelectorAll("[data-i18n-html]").forEach(function(el){
+      el.innerHTML = t(el.getAttribute("data-i18n-html"));
+    });
+    document.querySelectorAll("[data-i18n-ph]").forEach(function(el){
+      el.setAttribute("placeholder", t(el.getAttribute("data-i18n-ph")));
+    });
+    document.getElementById("transcript-live").setAttribute("data-empty-label", t("transcript.empty"));
+    document.documentElement.lang = currentLang === "en" ? "en-US" : "pt-BR";
+    document.title = currentLang === "en" ? "STAR Session" : "Sessão STAR";
+  }
+
+  function setLang(lang){
+    if (lang !== "pt" && lang !== "en") return;
+    currentLang = lang;
+    try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+    document.querySelectorAll("#langswitch button").forEach(function(b){
+      b.classList.toggle("active", b.getAttribute("data-lang") === lang);
+    });
+    applyStaticText();
+    // só substitui o currículo/JD pelo exemplo se o usuário ainda não tiver
+    // escrito ou enviado o dele — nunca apaga um dossiê real ao trocar idioma.
+    if (!state.userEdited){
+      $("resume").value = EXAMPLE_RESUME[currentLang] || EXAMPLE_RESUME.pt;
+      $("jd").value = EXAMPLE_JD[currentLang] || EXAMPLE_JD.pt;
+      $("cv-status").textContent = t("cv.status.none");
+    }
+    // só re-gera o deck de prévia local se o usuário ainda não pediu as perguntas
+    // de verdade — nunca descarta perguntas já geradas pelo Claude/backend.
+    if (!state.questionsGenerated){
+      state.questions = localQuestions($("resume").value, $("role").value.trim(), $("jd").value);
+      state.questionsSource = "local";
+    }
+    renderQuestionDeck();
+  }
+
+  document.querySelectorAll("#langswitch button").forEach(function(b){
+    b.addEventListener("click", function(){ setLang(b.getAttribute("data-lang")); });
+  });
+
+  // ============================================================
+  // conteúdo de exemplo e fallback local (bilíngue)
+  // ============================================================
+  var EXAMPLE_RESUME = {
+    pt: "Analista de Operações na Norteluz Logística (2021–2026). Liderei um time de 4 pessoas na migração do sistema de rastreamento de pedidos, reduzindo erros de entrega em 23% no primeiro trimestre. Coordenei um projeto com prazo apertado de 3 semanas para atender uma nova exigência regulatória, negociando prioridades com o time de TI. Antes disso, atendimento ao cliente na Vetta Seguros, onde propus um novo roteiro de atendimento que caiu o tempo médio de chamada em 40 segundos. Formação em Administração, cursos de Excel avançado e Power BI.",
+    en: "Operations Analyst at Norteluz Logistics (2021–2026). Led a team of 4 people through the order-tracking system migration, reducing delivery errors by 23% in the first quarter. Coordinated a project with a tight 3-week deadline to meet a new regulatory requirement, negotiating priorities with the IT team. Before that, customer service at Vetta Insurance, where I proposed a new call script that cut average call time by 40 seconds. Business Administration degree, advanced Excel and Power BI courses."
+  };
+  var EXAMPLE_JD = {
+    pt: "Vaga: Coordenador(a) de Operações — Norteluz Logística busca profissional para liderar a equipe de rastreamento e atendimento, com responsabilidade por SLAs de entrega, gestão de prazos regulatórios e interface direta com o time de TI. Requisitos: experiência liderando equipes pequenas, histórico de redução de erros/retrabalho, familiaridade com Power BI para acompanhamento de indicadores, e capacidade de negociar prioridades sob prazo apertado.",
+    en: "Job: Operations Coordinator — Norteluz Logistics is looking for a professional to lead the tracking and customer service team, responsible for delivery SLAs, regulatory deadline management, and direct interface with the IT team. Requirements: experience leading small teams, a track record of reducing errors/rework, familiarity with Power BI for tracking metrics, and the ability to negotiate priorities under tight deadlines."
+  };
+
+  var SKILLS = {
+    pt: ["liderança","dados","vendas","atendimento","projeto","logística","financeiro","marketing","TI","engenharia","produto","operações","suporte","design","recursos humanos","qualidade"],
+    en: ["leadership","data","sales","customer service","project","logistics","finance","marketing","IT","engineering","product","operations","support","design","human resources","quality"]
+  };
+  function detectArea(text){
+    var lower = text.toLowerCase();
+    var list = SKILLS[currentLang] || SKILLS.pt;
+    for (var i=0;i<list.length;i++){ if (lower.indexOf(list[i].toLowerCase()) !== -1) return list[i]; }
+    return currentLang === "en" ? "your field" : "sua área";
+  }
+  function localQuestions(resume, role, jd){
+    var area = detectArea((resume || "") + "\n" + (jd || ""));
+    if (currentLang === "en"){
+      var forRole = role ? (" for the " + role + " role") : "";
+      return [
+        {theme:"Leadership", question:"Tell me about a time you led a person or a team in "+area+forRole+". What was the situation, what was your responsibility, what did you do, and what was the result?"},
+        {theme:"Conflict", question:"Describe a real conflict you had with a colleague, client, or manager. What caused the disagreement, what action did you take, and how did it end?"},
+        {theme:"Tight deadline", question:"Talk about a project with a very tight deadline you had to deliver. What was the scenario, what was your responsibility, what did you do to pull it off, and what was the final result?"},
+        {theme:"Failure and learning", question:"Tell me about a mistake or a decision that didn't work out. What was the context, what did you do about it, and what changed afterward?"},
+        {theme:"Initiative", question:"Give an example of something you proposed without anyone asking for it. What was the situation, your task, the action taken, and the measured impact?"},
+        {theme:"Teamwork", question:"Describe a deliverable that depended heavily on other people or teams. What was the shared goal, your specific role, what did you do to align everyone, and what result was achieved?"}
+      ];
+    }
+    var alvo = role ? (" para a vaga de " + role) : "";
+    return [
+      {theme:"Liderança", question:"Conte sobre uma vez em que você liderou uma pessoa ou um time em "+area+alvo+". Qual era a situação, o que estava sob sua responsabilidade, o que você fez e qual foi o resultado?"},
+      {theme:"Conflito", question:"Descreva um conflito real que você teve com um colega, cliente ou gestor. O que causou o desentendimento, que ação você tomou e como isso terminou?"},
+      {theme:"Prazo apertado", question:"Fale sobre um projeto com prazo muito curto que você precisou entregar. Como era o cenário, o que ficou sob sua responsabilidade, o que você fez para dar conta e qual foi o resultado final?"},
+      {theme:"Falha e aprendizado", question:"Conte sobre um erro ou uma decisão que não deu certo. Qual era o contexto, o que você fez diante disso e o que mudou depois?"},
+      {theme:"Iniciativa", question:"Dê um exemplo de algo que você propôs sem que ninguém tivesse pedido. Qual era a situação, sua tarefa, a ação tomada e o impacto medido?"},
+      {theme:"Trabalho em equipe", question:"Descreva uma entrega que dependeu fortemente de outras pessoas ou áreas. Qual era o objetivo comum, seu papel específico, o que você fez para alinhar todo mundo e o resultado alcançado?"}
+    ];
+  }
 
   var STAGES = ["setup","interview","summary"];
-  var PRACTICE_QUESTION = "Para começar, vamos treinar: conte sobre uma vez em que você teve que resolver um problema inesperado bem na hora — no trabalho, na faculdade, ou em qualquer outro contexto do dia a dia.";
-  var PRACTICE_INTRO = "Antes de começarmos de verdade, uma explicação rápida sobre o método STAR. Toda boa resposta de entrevista comportamental cobre quatro partes: a Situação em que você estava, a Tarefa que era sua responsabilidade, a Ação que você tomou, e o Resultado que você alcançou. Vamos treinar com uma pergunta simples, essa não conta pra nota final. ";
 
   var state = {
     phase: "practice",
     questions: [],
     questionsSource: "local",
+    questionsGenerated: false,
+    userEdited: false,
     index: 0,
     transcripts: [],
     jd: "",
@@ -417,32 +742,12 @@
   $("nav-summary").addEventListener("click", function(){ if(!$("nav-summary").disabled) goTo("summary"); });
   $("cta-start").addEventListener("click", function(){ goTo("setup"); $("resume").focus(); });
 
-  // ---------- local fallback question bank (usado se o backend estiver fora do ar) ----------
-  var SKILLS = ["liderança","dados","vendas","atendimento","projeto","logística","financeiro","marketing","TI","engenharia","produto","operações","suporte","design","recursos humanos","qualidade"];
-  function detectArea(text){
-    var lower = text.toLowerCase();
-    for (var i=0;i<SKILLS.length;i++){ if (lower.indexOf(SKILLS[i]) !== -1) return SKILLS[i]; }
-    return "sua área";
-  }
-  function localQuestions(resume, role, jd){
-    var area = detectArea((resume || "") + "\n" + (jd || ""));
-    var alvo = role ? (" para a vaga de " + role) : "";
-    return [
-      {theme:"Liderança", question:"Conte sobre uma vez em que você liderou uma pessoa ou um time em "+area+alvo+". Qual era a situação, o que estava sob sua responsabilidade, o que você fez e qual foi o resultado?"},
-      {theme:"Conflito", question:"Descreva um conflito real que você teve com um colega, cliente ou gestor. O que causou o desentendimento, que ação você tomou e como isso terminou?"},
-      {theme:"Prazo apertado", question:"Fale sobre um projeto com prazo muito curto que você precisou entregar. Como era o cenário, o que ficou sob sua responsabilidade, o que você fez para dar conta e qual foi o resultado final?"},
-      {theme:"Falha e aprendizado", question:"Conte sobre um erro ou uma decisão que não deu certo. Qual era o contexto, o que você fez diante disso e o que mudou depois?"},
-      {theme:"Iniciativa", question:"Dê um exemplo de algo que você propôs sem que ninguém tivesse pedido. Qual era a situação, sua tarefa, a ação tomada e o impacto medido?"},
-      {theme:"Trabalho em equipe", question:"Descreva uma entrega que dependeu fortemente de outras pessoas ou áreas. Qual era o objetivo comum, seu papel específico, o que você fez para alinhar todo mundo e o resultado alcançado?"}
-    ];
-  }
-
   function renderQuestionDeck(){
     var deck = $("qdeck");
     deck.innerHTML = "";
     $("qcount").textContent = state.questions.length;
     if (!state.questions.length){
-      deck.innerHTML = '<div class="empty-note">Nenhuma pergunta ainda. Envie o currículo, cole a JD e gere a sessão.</div>';
+      deck.innerHTML = '<div class="empty-note">'+escapeHtml(t("qdeck.empty"))+'</div>';
       return;
     }
     state.questions.forEach(function(q, i){
@@ -454,9 +759,17 @@
   }
 
   // ---------- init with example ----------
-  $("resume").value = EXAMPLE_RESUME;
-  $("jd").value = EXAMPLE_JD;
-  state.questions = localQuestions(EXAMPLE_RESUME, "", EXAMPLE_JD);
+  $("resume").addEventListener("input", function(){ state.userEdited = true; });
+  $("jd").addEventListener("input", function(){ state.userEdited = true; });
+
+  applyStaticText();
+  $("resume").value = EXAMPLE_RESUME[currentLang] || EXAMPLE_RESUME.pt;
+  $("jd").value = EXAMPLE_JD[currentLang] || EXAMPLE_JD.pt;
+  state.questions = localQuestions($("resume").value, "", $("jd").value);
+  $("cue-question").textContent = t("cue.loading");
+  document.querySelectorAll("#langswitch button").forEach(function(b){
+    b.classList.toggle("active", b.getAttribute("data-lang") === currentLang);
+  });
   renderQuestionDeck();
 
   // ---------- upload de currículo (PDF/DOCX/TXT) ----------
@@ -464,7 +777,7 @@
     var file = this.files[0];
     if (!file) return;
     var status = $("cv-status");
-    status.textContent = "Extraindo texto de " + file.name + "…";
+    status.textContent = t("cv.status.extracting", {name: file.name});
 
     var form = new FormData();
     form.append("file", file);
@@ -475,10 +788,11 @@
       })
       .then(function(data){
         $("resume").value = data.text;
-        status.textContent = "Currículo extraído de " + data.filename + " (" + data.text.length + " caracteres) — revise antes de gerar as perguntas.";
+        state.userEdited = true;
+        status.textContent = t("cv.status.done", {name: data.filename, n: data.text.length});
       })
       .catch(function(err){
-        status.textContent = "Não consegui ler esse arquivo (" + (err.message || "erro") + "). Cole o texto do currículo manualmente abaixo.";
+        status.textContent = t("cv.status.error", {err: err.message || "error"});
       });
   });
 
@@ -489,33 +803,34 @@
     var role = $("role").value.trim();
     var jd = $("jd").value.trim();
     if (!resume){
-      $("gen-status").textContent = "Envie ou cole o currículo primeiro.";
+      $("gen-status").textContent = t("gen.status.cv_first");
       return;
     }
     var btn = $("btn-generate");
     btn.disabled = true;
-    $("gen-status").textContent = "Analisando dossiê e vaga…";
-    $("setup-meta").textContent = "gerando…";
+    state.questionsGenerated = true;
+    $("gen-status").textContent = t("gen.status.analyzing");
+    $("setup-meta").textContent = t("setup.meta.generating");
 
     fetch("/api/questions", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({resume: resume, role: role, jd: jd, linkedin: linkedin})
+      body: JSON.stringify({resume: resume, role: role, jd: jd, linkedin: linkedin, lang: currentLang})
     }).then(function(r){
       if (!r.ok) throw new Error("http " + r.status);
       return r.json();
     }).then(function(data){
       var qs = data.questions || [];
-      if (!qs.length) throw new Error("sem perguntas");
+      if (!qs.length) throw new Error("no questions");
       state.questions = qs;
       state.questionsSource = data.source || "local";
       renderQuestionDeck();
-      $("setup-meta").textContent = data.source === "claude" ? "perguntas personalizadas geradas" : "perguntas locais geradas (sem Claude API)";
+      $("setup-meta").textContent = data.source === "claude" ? t("setup.meta.claude") : t("setup.meta.local");
     }).catch(function(){
       state.questions = localQuestions(resume, role, jd);
       state.questionsSource = "local";
       renderQuestionDeck();
-      $("setup-meta").textContent = "backend indisponível — perguntas locais no navegador";
+      $("setup-meta").textContent = t("setup.meta.offline");
     }).finally(function(){
       btn.disabled = false;
       $("gen-status").textContent = "";
@@ -528,12 +843,15 @@
 
   function setOnAir(mode){
     var onair = $("onair"), label = $("onair-label");
-    var role = state.phase === "practice" ? "TUTOR" : "RECRUTADOR";
     waveEl.classList.remove("listening","speaking");
-    if (mode === "speaking"){ onair.classList.add("active"); label.textContent = role + " FALANDO"; waveEl.classList.add("speaking"); }
-    else if (mode === "listening"){ onair.classList.add("active"); label.textContent = "GRAVANDO"; waveEl.classList.add("listening"); }
-    else if (mode === "processing"){ onair.classList.add("active"); label.textContent = "TRANSCREVENDO"; }
-    else { onair.classList.remove("active"); label.textContent = "EM ESPERA"; }
+    if (mode === "speaking"){
+      onair.classList.add("active");
+      label.textContent = state.phase === "practice" ? t("onair.speaking.tutor") : t("onair.speaking.recruiter");
+      waveEl.classList.add("speaking");
+    }
+    else if (mode === "listening"){ onair.classList.add("active"); label.textContent = t("onair.listening"); waveEl.classList.add("listening"); }
+    else if (mode === "processing"){ onair.classList.add("active"); label.textContent = t("onair.processing"); }
+    else { onair.classList.remove("active"); label.textContent = t("onair.idle"); }
   }
 
   function showError(msg){
@@ -558,7 +876,8 @@
     if (state.currentAudio){ state.currentAudio.pause(); state.currentAudio = null; }
     lockMicWhileSpeaking(true);
     var finish = function(){ lockMicWhileSpeaking(false); if (onDone) onDone(); };
-    var cached = ttsCache[text];
+    var cacheKey = currentLang + "::" + text;
+    var cached = ttsCache[cacheKey];
     var playBlob = function(blob){
       var url = URL.createObjectURL(blob);
       var audio = new Audio(url);
@@ -571,27 +890,30 @@
     fetch("/api/tts", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({text: text})
+      body: JSON.stringify({text: text, lang: currentLang})
     }).then(function(r){
       if (!r.ok) throw new Error("http " + r.status);
       return r.blob();
     }).then(function(blob){
-      ttsCache[text] = blob;
+      ttsCache[cacheKey] = blob;
       playBlob(blob);
     }).catch(function(){
-      showError("Não consegui gerar a voz (Kokoro). O backend está rodando? Você ainda pode ler a pergunta acima.");
+      showError(t("error.tts"));
       finish();
     });
   }
 
   // ---------- Whisper STT via backend (gravação com MediaRecorder) ----------
   var canRecord = !!(navigator.mediaDevices && window.MediaRecorder);
-  if (!canRecord){
-    $("voice-support-note").textContent = "Gravação de áudio não disponível neste navegador — digite sua resposta diretamente na caixa de transcrição.";
-    $("btn-mic").disabled = true;
-  } else {
-    $("voice-support-note").textContent = "Clique em \"Gravar resposta\", fale, e clique de novo para parar e transcrever com o Whisper.";
+  function updateVoiceSupportNote(){
+    if (!canRecord){
+      $("voice-support-note").textContent = t("voice.support.norecord");
+      $("btn-mic").disabled = true;
+    } else {
+      $("voice-support-note").textContent = t("voice.support.ok");
+    }
   }
+  updateVoiceSupportNote();
 
   function startRecording(){
     showError("");
@@ -613,9 +935,9 @@
       mr.start();
       state.recording = true;
       setOnAir("listening");
-      $("btn-mic").textContent = "[ ■ Parar e transcrever ]";
+      $("btn-mic").textContent = t("btn.mic.stop");
     }).catch(function(){
-      showError("Não consegui acessar o microfone. Verifique a permissão do navegador.");
+      showError(t("error.mic"));
       $("btn-replay").disabled = false;
     });
   }
@@ -624,7 +946,7 @@
     if (state.mediaRecorder && state.recording){
       state.recording = false;
       $("btn-mic").disabled = true;
-      $("btn-mic").textContent = "[ ● Gravar resposta ]";
+      $("btn-mic").textContent = t("btn.mic.record");
       setOnAir("processing");
       state.mediaRecorder.stop();
     }
@@ -632,7 +954,8 @@
 
   function transcribe(blob){
     var form = new FormData();
-    form.append("audio", blob, "resposta.webm");
+    form.append("audio", blob, "answer.webm");
+    form.append("language", currentLang);
     fetch("/api/stt", {method: "POST", body: form})
       .then(function(r){
         if (!r.ok) throw new Error("http " + r.status);
@@ -646,7 +969,7 @@
         setOnAir("idle");
       })
       .catch(function(){
-        showError("Não consegui transcrever com o Whisper. O backend está rodando? Digite sua resposta manualmente.");
+        showError(t("error.stt"));
         setOnAir("idle");
       })
       .finally(function(){
@@ -675,43 +998,43 @@
   // ---------- rodada de treino com o tutor (não conta pra avaliação final) ----------
   function startPractice(){
     state.phase = "practice";
-    $("interview-meta").textContent = "TUTOR · RODADA DE TREINO";
-    $("cue-theme").textContent = "TUTORIAL · TREINO";
-    $("progress").textContent = "[ TREINO ]";
-    $("cue-question").textContent = PRACTICE_QUESTION;
+    $("interview-meta").textContent = t("interview.meta.practice");
+    $("cue-theme").textContent = t("cue.theme.tutorial");
+    $("progress").textContent = t("progress.practice");
+    $("cue-question").textContent = t("practice.question");
     $("transcript-live").textContent = "";
     $("tutor-panel").hidden = true;
     $("console-controls").hidden = false;
-    $("btn-skip").textContent = "Pular treino";
-    $("btn-next").textContent = "[ Ver feedback do tutor → ]";
+    $("btn-skip").textContent = t("btn.skip.practice");
+    $("btn-next").textContent = t("btn.next.feedback");
     $("btn-next").disabled = true;
     if (state.recording) stopRecording();
-    speak(PRACTICE_INTRO + PRACTICE_QUESTION);
+    speak(t("practice.intro") + t("practice.question"));
   }
 
   function showTutorFeedback(){
     var answer = $("transcript-live").textContent.trim();
     $("console-controls").hidden = true;
     $("tutor-panel").hidden = false;
-    $("tutor-feedback").textContent = "Analisando sua resposta de treino…";
+    $("tutor-feedback").textContent = t("tutor.analyzing");
     fetch("/api/tutor-feedback", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({question: PRACTICE_QUESTION, answer: answer})
+      body: JSON.stringify({question: t("practice.question"), answer: answer, lang: currentLang})
     }).then(function(r){
       if (!r.ok) throw new Error("http " + r.status);
       return r.json();
     }).then(function(data){
       $("tutor-feedback").textContent = data.feedback;
     }).catch(function(){
-      $("tutor-feedback").textContent = "Não consegui gerar o feedback do tutor agora — mas você já pode seguir para a entrevista real.";
+      $("tutor-feedback").textContent = t("tutor.error");
     });
   }
 
   $("btn-start-real").addEventListener("click", function(){
     $("tutor-panel").hidden = true;
     $("console-controls").hidden = false;
-    $("btn-skip").textContent = "Pular pergunta";
+    $("btn-skip").textContent = t("btn.skip.real");
     state.phase = "real";
     state.index = 0;
     loadQuestion();
@@ -719,19 +1042,19 @@
 
   function loadQuestion(){
     var q = state.questions[state.index];
-    $("interview-meta").textContent = "KOKORO + WHISPER";
+    $("interview-meta").textContent = t("interview.meta.real");
     $("cue-theme").textContent = q.theme;
     $("cue-question").textContent = q.question;
     $("progress").textContent = "[ "+String(state.index+1).padStart(2,"0")+" / "+String(state.questions.length).padStart(2,"0")+" ]";
     $("transcript-live").textContent = "";
     $("btn-next").disabled = true;
-    $("btn-next").textContent = (state.index === state.questions.length - 1) ? "[ Finalizar sessão → ]" : "[ Próxima pergunta → ]";
+    $("btn-next").textContent = (state.index === state.questions.length - 1) ? t("btn.next.finish") : t("btn.next.question");
     if (state.recording) stopRecording();
     speak(q.question);
   }
 
   $("btn-replay").addEventListener("click", function(){
-    if (state.phase === "practice") speak(PRACTICE_INTRO + PRACTICE_QUESTION);
+    if (state.phase === "practice") speak(t("practice.intro") + t("practice.question"));
     else speak(state.questions[state.index].question);
   });
 
@@ -780,7 +1103,7 @@
   function finishInterview(){
     if (state.currentAudio) state.currentAudio.pause();
     $("nav-summary").disabled = false;
-    $("summary-meta").textContent = state.transcripts.length + " respostas registradas";
+    $("summary-meta").textContent = t("summary.meta", {n: state.transcripts.length});
     renderTranscriptList();
     goTo("summary");
     loadInsights();
@@ -790,31 +1113,31 @@
   function renderTranscriptList(){
     var list = $("transcript-list");
     list.innerHTML = "";
-    state.transcripts.forEach(function(t){
+    state.transcripts.forEach(function(item){
       var el = document.createElement("div");
       el.className = "titem";
-      var ans = t.skipped
-        ? '<div class="a skip">— pergunta pulada —</div>'
-        : '<div class="a">'+escapeHtml(t.answer || "(sem resposta)")+'</div>';
-      el.innerHTML = '<div class="theme-tag">'+escapeHtml(t.theme)+'</div><div class="q">'+escapeHtml(t.question)+'</div><div class="a-label">Resposta</div>'+ans;
+      var ans = item.skipped
+        ? '<div class="a skip">'+escapeHtml(t("answer.skipped"))+'</div>'
+        : '<div class="a">'+escapeHtml(item.answer || t("answer.none"))+'</div>';
+      el.innerHTML = '<div class="theme-tag">'+escapeHtml(item.theme)+'</div><div class="q">'+escapeHtml(item.question)+'</div><div class="a-label">'+escapeHtml(t("answer.label"))+'</div>'+ans;
       list.appendChild(el);
     });
   }
 
   function buildReport(){
     var body = $("report-body");
-    var answered = state.transcripts.filter(function(t){ return !t.skipped && t.answer; });
+    var answered = state.transcripts.filter(function(item){ return !item.skipped && item.answer; });
     if (!answered.length){
-      var msg = "Nenhuma resposta foi registrada nesta sessão.";
+      var msg = t("report.none");
       body.textContent = msg;
       saveSession(msg, "none");
       return;
     }
-    body.textContent = "Avaliando respostas…";
+    body.textContent = t("report.generating");
     fetch("/api/report", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({transcripts: state.transcripts, jd: state.jd || ""})
+      body: JSON.stringify({transcripts: state.transcripts, jd: state.jd || "", lang: currentLang})
     }).then(function(r){
       if (!r.ok) throw new Error("http " + r.status);
       return r.json();
@@ -822,7 +1145,7 @@
       body.textContent = data.report;
       saveSession(data.report, data.source);
     }).catch(function(){
-      var msg = "Não consegui gerar a avaliação — o backend está rodando?";
+      var msg = t("report.error");
       body.textContent = msg;
       saveSession(msg, "error");
     });
@@ -840,7 +1163,8 @@
         questions_source: state.questionsSource || "local",
         report: reportText,
         report_source: reportSource,
-        transcripts: state.transcripts
+        transcripts: state.transcripts,
+        lang: currentLang
       })
     }).then(function(r){
       return r.ok ? r.json() : null;
@@ -851,38 +1175,38 @@
 
   function loadInsights(){
     var body = $("insights-body");
-    body.textContent = "Carregando histórico…";
+    body.textContent = t("insights.loading");
     fetch("/api/insights").then(function(r){
       if (!r.ok) throw new Error("http " + r.status);
       return r.json();
     }).then(function(data){
       var lines = [];
-      lines.push(data.sessions_total + " sessão(ões) e " + data.answers_total + " resposta(s) registradas no seu histórico local.");
+      lines.push(t("insights.summary", {sessions: data.sessions_total, answers: data.answers_total}));
       if (data.model && data.model.trained){
-        lines.push("Modelo preditivo: treinado com " + data.model.answers_available + " respostas passadas — as perguntas e o feedback já levam em conta seus padrões de resposta.");
+        lines.push(t("insights.model.trained", {n: data.model.answers_available}));
       } else if (data.model) {
-        lines.push("Modelo preditivo: ainda usando heurística simples (" + data.model.answers_available + "/" + data.model.min_samples_to_train + " respostas coletadas). Continue praticando pra ativar o modelo treinado.");
+        lines.push(t("insights.model.cold", {n: data.model.answers_available, min: data.model.min_samples_to_train}));
       }
       if (data.weak_themes && data.weak_themes.length){
-        var w = data.weak_themes.map(function(t){
-          return t.theme + " (cobertura média " + Math.round(t.avg_coverage * 100) + "%, " + t.n + " resposta(s))";
+        var w = data.weak_themes.map(function(item){
+          return t("insights.weak.item", {theme: item.theme, pct: Math.round(item.avg_coverage * 100), n: item.n});
         }).join("; ");
-        lines.push("Temas historicamente mais fracos: " + w + ". Novas sessões vão priorizar perguntas nesses temas.");
+        lines.push(t("insights.weak", {list: w}));
       }
       body.textContent = lines.join(" ");
     }).catch(function(){
-      body.textContent = "Não consegui carregar seu histórico agora — o backend está rodando?";
+      body.textContent = t("insights.error");
     });
   }
 
   $("btn-copy").addEventListener("click", function(){
-    var text = state.transcripts.map(function(t,i){
-      return (i+1)+". ["+t.theme+"] "+t.question+"\nResposta: "+(t.skipped ? "(pulada)" : t.answer);
+    var text = state.transcripts.map(function(item,i){
+      return (i+1)+". ["+item.theme+"] "+item.question+"\n"+t("answer.label")+": "+(item.skipped ? t("copy.skipped") : item.answer);
     }).join("\n\n");
     navigator.clipboard && navigator.clipboard.writeText(text).then(function(){
       var btn = $("btn-copy");
       var orig = btn.textContent;
-      btn.textContent = "[ Copiado ]";
+      btn.textContent = t("btn.copy.done");
       setTimeout(function(){ btn.textContent = orig; }, 1600);
     });
   });

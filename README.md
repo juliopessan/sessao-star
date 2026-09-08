@@ -12,6 +12,7 @@ A Sessão STAR nasceu pra resolver as duas coisas ao mesmo tempo: perguntas que 
 
 ## O que ela faz
 
+0. Você escolhe o idioma pela bandeira no topo (🇧🇷 português ou 🇺🇸 inglês) — currículo, vaga, perguntas, voz e relatório seguem essa escolha do início ao fim.
 1. Você envia o currículo (PDF, DOCX, TXT ou colado direto) e cola a descrição da vaga (JD).
 2. O Claude cruza as duas fontes e monta 6 perguntas comportamentais no método STAR — inclusive perguntas que sondam de propósito um requisito da vaga que seu currículo ainda não comprova.
 3. Antes de valer alguma coisa, uma rodada de treino com um tutor explica o método rapidinho e dá feedback sobre uma resposta de aquecimento, sem contar pra nota final.
@@ -94,7 +95,8 @@ microfone mais confiável).
 | `ANTHROPIC_API_KEY` | — | Chave da API da Anthropic. Sem ela, perguntas e relatório usam heurística local. |
 | `ANTHROPIC_MODEL` | `claude-haiku-4-5` | Modelo Claude usado para gerar perguntas e relatório. |
 | `WHISPER_MODEL` | `small` | Tamanho do modelo Whisper (`tiny`, `base`, `small`, `medium`, `large-v3`). Modelos maiores são mais precisos e mais lentos. |
-| `KOKORO_VOICE` | `pm_alex` | Voz do Kokoro para o recrutador. Vozes pt-BR: `pf_dora` (feminina), `pm_alex`, `pm_santa` (masculinas). |
+| `KOKORO_VOICE` | `pm_alex` | Voz do Kokoro para o recrutador em português. Vozes pt-BR: `pf_dora` (feminina), `pm_alex`, `pm_santa` (masculinas). |
+| `KOKORO_VOICE_EN` | `af_heart` | Voz do Kokoro para o recrutador em inglês (quando 🇺🇸 está selecionado). Vozes em inglês: `af_heart`, `af_bella` (femininas), `am_adam`, `am_michael` (masculinas). |
 
 ## Estrutura do projeto
 
