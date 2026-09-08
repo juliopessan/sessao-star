@@ -353,6 +353,11 @@
       <div class="report-body" id="report-body">Gerando avaliação…</div>
     </div>
 
+    <div class="report-panel">
+      <h3>Seu histórico &amp; modelo preditivo</h3>
+      <div class="report-body" id="insights-body">Carregando histórico…</div>
+    </div>
+
     <div class="transcript-list" id="transcript-list"></div>
 
     <div class="cta-row" style="margin-top:24px;">
@@ -381,6 +386,7 @@
   var state = {
     phase: "practice",
     questions: [],
+    questionsSource: "local",
     index: 0,
     transcripts: [],
     jd: "",
@@ -502,10 +508,12 @@
       var qs = data.questions || [];
       if (!qs.length) throw new Error("sem perguntas");
       state.questions = qs;
+      state.questionsSource = data.source || "local";
       renderQuestionDeck();
       $("setup-meta").textContent = data.source === "claude" ? "perguntas personalizadas geradas" : "perguntas locais geradas (sem Claude API)";
     }).catch(function(){
       state.questions = localQuestions(resume, role, jd);
+      state.questionsSource = "local";
       renderQuestionDeck();
       $("setup-meta").textContent = "backend indisponível — perguntas locais no navegador";
     }).finally(function(){
@@ -775,6 +783,7 @@
     $("summary-meta").textContent = state.transcripts.length + " respostas registradas";
     renderTranscriptList();
     goTo("summary");
+    loadInsights();
     buildReport();
   }
 
@@ -796,7 +805,9 @@
     var body = $("report-body");
     var answered = state.transcripts.filter(function(t){ return !t.skipped && t.answer; });
     if (!answered.length){
-      body.textContent = "Nenhuma resposta foi registrada nesta sessão.";
+      var msg = "Nenhuma resposta foi registrada nesta sessão.";
+      body.textContent = msg;
+      saveSession(msg, "none");
       return;
     }
     body.textContent = "Avaliando respostas…";
@@ -809,8 +820,58 @@
       return r.json();
     }).then(function(data){
       body.textContent = data.report;
+      saveSession(data.report, data.source);
     }).catch(function(){
-      body.textContent = "Não consegui gerar a avaliação — o backend está rodando?";
+      var msg = "Não consegui gerar a avaliação — o backend está rodando?";
+      body.textContent = msg;
+      saveSession(msg, "error");
+    });
+  }
+
+  // ---------- histórico local (SQLite) + modelo preditivo ----------
+  function saveSession(reportText, reportSource){
+    fetch("/api/session/save", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        role: $("role").value.trim(),
+        resume: $("resume").value.trim(),
+        jd: state.jd || "",
+        questions_source: state.questionsSource || "local",
+        report: reportText,
+        report_source: reportSource,
+        transcripts: state.transcripts
+      })
+    }).then(function(r){
+      return r.ok ? r.json() : null;
+    }).then(function(){
+      loadInsights();
+    }).catch(function(){});
+  }
+
+  function loadInsights(){
+    var body = $("insights-body");
+    body.textContent = "Carregando histórico…";
+    fetch("/api/insights").then(function(r){
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    }).then(function(data){
+      var lines = [];
+      lines.push(data.sessions_total + " sessão(ões) e " + data.answers_total + " resposta(s) registradas no seu histórico local.");
+      if (data.model && data.model.trained){
+        lines.push("Modelo preditivo: treinado com " + data.model.answers_available + " respostas passadas — as perguntas e o feedback já levam em conta seus padrões de resposta.");
+      } else if (data.model) {
+        lines.push("Modelo preditivo: ainda usando heurística simples (" + data.model.answers_available + "/" + data.model.min_samples_to_train + " respostas coletadas). Continue praticando pra ativar o modelo treinado.");
+      }
+      if (data.weak_themes && data.weak_themes.length){
+        var w = data.weak_themes.map(function(t){
+          return t.theme + " (cobertura média " + Math.round(t.avg_coverage * 100) + "%, " + t.n + " resposta(s))";
+        }).join("; ");
+        lines.push("Temas historicamente mais fracos: " + w + ". Novas sessões vão priorizar perguntas nesses temas.");
+      }
+      body.textContent = lines.join(" ");
+    }).catch(function(){
+      body.textContent = "Não consegui carregar seu histórico agora — o backend está rodando?";
     });
   }
 

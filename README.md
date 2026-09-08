@@ -6,6 +6,11 @@ descrição da vaga (JD), o Claude cruza os dois para gerar perguntas comportame
 aparecem no currículo — e um recrutador simulado conduz a entrevista falando com você — voz gerada
 pelo **Kokoro TTS** e transcrita pelo **Whisper**, ambos rodando localmente no seu computador.
 
+Toda sessão fica salva num banco **SQLite** local, e um modelo preditivo (**scikit-learn**) usa
+esse histórico para identificar em quais temas suas respostas costumam cobrir menos o método STAR
+— e passa a priorizar perguntas nesses temas nas próximas sessões. O projeto literalmente aprende
+com o seu uso.
+
 ## Requisitos do sistema
 
 - Python 3.10+
@@ -66,7 +71,11 @@ backend/
   main.py            FastAPI: /api/extract-resume (PDF/DOCX/TXT -> texto),
                       /api/tts (Kokoro), /api/stt (Whisper),
                       /api/questions e /api/report (Claude API com fallback local),
+                      /api/tutor-feedback (rodada de treino),
+                      /api/session/save e /api/insights (histórico + modelo preditivo),
                       e serve o frontend estático.
+  db.py              Persistência em SQLite (backend/data/sessao_star.db, fora do git).
+  ml.py              Modelo preditivo (scikit-learn) de cobertura STAR.
   requirements.txt
   .env.example
 frontend/
@@ -76,7 +85,33 @@ frontend/
 O frontend grava a resposta com `MediaRecorder`, envia o áudio para `/api/stt` e recebe o texto
 transcrito (não é streaming ao vivo — grava, para, transcreve). A pergunta é sintetizada uma vez
 por `/api/tts` e o áudio fica em cache no navegador durante a sessão, então "ouvir de novo" não
-gera uma nova chamada ao Kokoro.
+gera uma nova chamada ao Kokoro. As chamadas ao Kokoro e ao Whisper são serializadas com um lock
+no backend — os dois modelos não são seguros para chamadas concorrentes (ex.: dois cliques rápidos
+em "ouvir de novo").
+
+### Histórico local e modelo preditivo (`db.py` + `ml.py`)
+
+Cada sessão finalizada é salva em SQLite: currículo/JD (resumidos), tema e texto de cada pergunta
+e resposta, e o relatório final. A partir daí:
+
+1. **Rótulo heurístico** — uma lista de palavras-chave (`STAR_HINTS` em `main.py`) decide, resposta
+   por resposta, quais dos quatro elementos do método (Situação/Tarefa/Ação/Resultado) parecem
+   cobertos. Esse é o "professor" que ensina o modelo.
+2. **Início frio** — com menos de 20 respostas reais acumuladas, o app usa só essa heurística.
+3. **Modelo treinado** — a partir de 20 respostas, `ml.train()` treina um classificador de texto
+   (TF-IDF + regressão logística, um por elemento do STAR) sobre todo o histórico, e passa a usar
+   esse modelo em vez da lista fixa de palavras-chave para avaliar respostas novas — capturando
+   padrões de escrita que a heurística não prevê. Reaprende a cada sessão salva.
+4. **Perguntas mais direcionadas** — `ml.weak_theme_profile()` identifica os temas onde sua
+   cobertura histórica é mais baixa, e esse sinal entra tanto no prompt do Claude quanto na ordem
+   das perguntas de fallback local, priorizando exatamente onde você mais precisa treinar.
+
+O painel "Seu histórico & modelo preditivo", na tela de relatório, mostra esse estado em tempo
+real — quantas sessões/respostas já foram registradas, se o modelo já foi treinado, e quais temas
+estão mais fracos.
+
+**Privacidade:** `backend/data/` (banco SQLite + modelo treinado) fica fora do git — contém
+trechos de currículo e as respostas faladas nas suas entrevistas de treino.
 
 ## Problemas comuns
 

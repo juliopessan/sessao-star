@@ -3,6 +3,7 @@ import json
 import os
 import re
 import tempfile
+import threading
 from pathlib import Path
 from typing import List, Optional
 
@@ -14,12 +15,21 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import db
+import ml
+
 load_dotenv()
 
 BACKEND_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BACKEND_DIR.parent / "frontend"
 
 app = FastAPI(title="Sessão STAR")
+
+
+@app.on_event("startup")
+def _startup():
+    db.init_db()
+
 
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
 DEFAULT_VOICE = os.getenv("KOKORO_VOICE", "pm_alex")
@@ -31,6 +41,7 @@ WHISPER_SIZE = os.getenv("WHISPER_MODEL", "small")
 # ============================================================
 
 _kokoro_pipeline = None
+_kokoro_lock = threading.Lock()
 
 
 def get_kokoro_pipeline():
@@ -56,8 +67,11 @@ def tts(req: TTSRequest):
     voice = req.voice or DEFAULT_VOICE
 
     try:
-        pipeline = get_kokoro_pipeline()
-        chunks = [audio for _graphemes, _phonemes, audio in pipeline(text, voice=voice)]
+        # o pipeline do Kokoro não é seguro para chamadas concorrentes (ex.: dois
+        # cliques rápidos em "ouvir de novo") — serializa com um lock.
+        with _kokoro_lock:
+            pipeline = get_kokoro_pipeline()
+            chunks = [audio for _graphemes, _phonemes, audio in pipeline(text, voice=voice)]
     except Exception as exc:  # pragma: no cover - erro de infraestrutura local
         raise HTTPException(500, f"Falha ao gerar voz com Kokoro: {exc}") from exc
 
@@ -76,6 +90,7 @@ def tts(req: TTSRequest):
 # ============================================================
 
 _whisper_model = None
+_whisper_lock = threading.Lock()
 
 
 def get_whisper_model():
@@ -135,9 +150,10 @@ async def stt(audio: UploadFile = File(...)):
         tmp_path = tmp.name
 
     try:
-        model = get_whisper_model()
-        segments, _info = model.transcribe(tmp_path, language="pt", beam_size=5)
-        text = " ".join(seg.text.strip() for seg in segments).strip()
+        with _whisper_lock:
+            model = get_whisper_model()
+            segments, _info = model.transcribe(tmp_path, language="pt", beam_size=5)
+            text = " ".join(seg.text.strip() for seg in segments).strip()
     except Exception as exc:  # pragma: no cover
         raise HTTPException(500, f"Falha ao transcrever com Whisper: {exc}") from exc
     finally:
@@ -168,7 +184,7 @@ def detect_area(text: str) -> str:
 def local_questions(resume: str, role: str, jd: str = "") -> List[dict]:
     area = detect_area(f"{resume}\n{jd}")
     alvo = f" para a vaga de {role}" if role else ""
-    return [
+    questions = [
         {"theme": "Liderança", "question": f"Conte sobre uma vez em que você liderou uma pessoa ou um time em {area}{alvo}. Qual era a situação, o que estava sob sua responsabilidade, o que você fez e qual foi o resultado?"},
         {"theme": "Conflito", "question": "Descreva um conflito real que você teve com um colega, cliente ou gestor. O que causou o desentendimento, que ação você tomou e como isso terminou?"},
         {"theme": "Prazo apertado", "question": "Fale sobre um projeto com prazo muito curto que você precisou entregar. Como era o cenário, o que ficou sob sua responsabilidade, o que você fez para dar conta e qual foi o resultado final?"},
@@ -176,6 +192,11 @@ def local_questions(resume: str, role: str, jd: str = "") -> List[dict]:
         {"theme": "Iniciativa", "question": "Dê um exemplo de algo que você propôs sem que ninguém tivesse pedido. Qual era a situação, sua tarefa, a ação tomada e o impacto medido?"},
         {"theme": "Trabalho em equipe", "question": "Descreva uma entrega que dependeu fortemente de outras pessoas ou áreas. Qual era o objetivo comum, seu papel específico, o que você fez para alinhar todo mundo e o resultado alcançado?"},
     ]
+    # prioriza, no fallback local, os temas onde o histórico do candidato mostra mais lacunas de STAR
+    weak_names = {w["theme"] for w in ml.weak_theme_profile(limit=3)}
+    if weak_names:
+        questions.sort(key=lambda q: 0 if q["theme"] in weak_names else 1)
+    return questions
 
 
 STAR_HINTS = {
@@ -187,15 +208,23 @@ STAR_HINTS = {
 
 
 def star_coverage(answer: str) -> List[str]:
+    """Heurística de palavras-chave — o 'professor' que rotula os dados de treino do modelo em ml.py."""
     lower = (answer or "").lower()
     return [key for key, words in STAR_HINTS.items() if any(w in lower for w in words)]
+
+
+def coverage_for(answer: str) -> List[str]:
+    """Cobertura STAR de uma resposta: usa o modelo treinado (ml.py) quando disponível,
+    senão cai na heurística de palavras-chave."""
+    predicted = ml.predict_coverage(answer)
+    return predicted if predicted is not None else star_coverage(answer)
 
 
 def local_report(transcripts: List[dict]) -> str:
     answered = [t for t in transcripts if not t.get("skipped") and t.get("answer")]
     lines = [f"Respostas registradas: {len(answered)} de {len(transcripts)}.", ""]
     for i, t in enumerate(answered, start=1):
-        covered = star_coverage(t["answer"])
+        covered = coverage_for(t["answer"])
         words = len(t["answer"].split())
         cov_text = ", ".join(covered) if covered else "nenhum sinal claro de STAR"
         lines.append(f"{i}. [{t['theme']}] {words} palavras — cobriu: {cov_text}")
@@ -206,7 +235,7 @@ def local_report(transcripts: List[dict]) -> str:
 
 def local_tutor_feedback(answer: str) -> str:
     labels = {"situação": "Situação", "tarefa": "Tarefa", "ação": "Ação", "resultado": "Resultado"}
-    covered = star_coverage(answer)
+    covered = coverage_for(answer)
     missing = [labels[k] for k in labels if k not in covered]
     words = len(answer.split())
 
@@ -292,6 +321,19 @@ def tutor_feedback(req: TutorFeedbackRequest):
         return {"feedback": local_tutor_feedback(answer), "source": "local"}
 
 
+def weak_theme_hint() -> str:
+    """Trecho de prompt com os temas onde o histórico do candidato mostra mais lacunas de STAR."""
+    weak = ml.weak_theme_profile(limit=2)
+    if not weak:
+        return ""
+    names = ", ".join(w["theme"] for w in weak)
+    return (
+        f"HISTÓRICO DO CANDIDATO: em sessões de prática anteriores, os temas onde ele mais deixou "
+        f"de cobrir Situação, Tarefa, Ação ou Resultado foram: {names}. Inclua pelo menos uma "
+        f"pergunta nesses temas, se fizer sentido com o currículo e a vaga.\n\n"
+    )
+
+
 class QuestionsRequest(BaseModel):
     resume: str
     role: Optional[str] = ""
@@ -328,6 +370,7 @@ def questions(req: QuestionsRequest):
         + (f"DESCRIÇÃO DA VAGA (JD):\n{jd[:4000]}\n\n" if jd else "")
         + (f"TÍTULO DA VAGA: {req.role}\n\n" if req.role else "")
         + (f"URL DO LINKEDIN (apenas contexto, ignore se não ajudar): {req.linkedin}\n\n" if req.linkedin else "")
+        + weak_theme_hint()
     )
 
     try:
@@ -400,6 +443,50 @@ def report(req: ReportRequest):
         return {"report": text, "source": "claude"}
     except Exception:
         return {"report": local_report(transcripts), "source": "local"}
+
+
+# ============================================================
+# Histórico local (SQLite) e modelo preditivo (ml.py)
+# ============================================================
+
+class SessionSaveRequest(BaseModel):
+    role: Optional[str] = ""
+    resume: Optional[str] = ""
+    jd: Optional[str] = ""
+    questions_source: Optional[str] = ""
+    report: Optional[str] = ""
+    report_source: Optional[str] = ""
+    transcripts: List[dict]
+
+
+@app.post("/api/session/save")
+def session_save(req: SessionSaveRequest):
+    session_id = db.save_session(
+        role=(req.role or "").strip(),
+        resume_excerpt=(req.resume or "").strip()[:2000],
+        jd_excerpt=(req.jd or "").strip()[:2000],
+        questions_source=req.questions_source or "",
+        report_text=req.report or "",
+        report_source=req.report_source or "",
+        transcripts=req.transcripts or [],
+        coverage_fn=star_coverage,
+    )
+    model = ml.train()
+    return {
+        "session_id": session_id,
+        "sessions_total": db.session_count(),
+        "model_trained": model is not None,
+    }
+
+
+@app.get("/api/insights")
+def insights():
+    return {
+        "sessions_total": db.session_count(),
+        "answers_total": db.answer_count(),
+        "weak_themes": ml.weak_theme_profile(),
+        "model": ml.model_status(),
+    }
 
 
 # ============================================================
